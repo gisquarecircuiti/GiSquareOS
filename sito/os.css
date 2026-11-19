@@ -56,3 +56,8 @@
   .os-compare thead th{font-size:16px}
   .os-faq summary{font-size:18px}
 }
+
+/* Collegamenti a GiSquare Circuiti */
+.os-link{display:inline-block;margin-top:6px;color:#2f6fa3;font-weight:600}
+.os-solo-circuiti{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12);color:#c5d1e2;font-size:13px}
+.os-solo-circuiti a{color:var(--accent);font-weight:600}
