@@ -1,0 +1,5 @@
+# GiSquare OS - schede Arduino, ESP32, Raspberry Pi Pico e simili collegate via USB:
+# le porte seriali sono usabili da tutti gli utenti, senza aggiungerli al gruppo "dialout".
+# Così Arduino IDE e Thonny caricano i programmi sulla scheda al primo colpo.
+SUBSYSTEM=="tty", KERNEL=="ttyACM[0-9]*", MODE="0666"
+SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*", MODE="0666"

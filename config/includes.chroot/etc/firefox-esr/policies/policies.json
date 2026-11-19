@@ -1,0 +1,8 @@
+{
+  "policies": {
+    "OverrideFirstRunPage": "file:///usr/share/gisquare-os/guida.html",
+    "DisableTelemetry": true,
+    "DontCheckDefaultBrowser": true,
+    "RequestedLocales": ["it"]
+  }
+}

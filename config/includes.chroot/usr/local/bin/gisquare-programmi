@@ -1,0 +1,186 @@
+#!/usr/bin/python3
+"""GiSquare OS - Installa altri programmi: un catalogo da cui installare con un clic."""
+import os
+import socket
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/local/lib/gisquare-os")
+import gisquare_ui as ui  # noqa: E402
+from gisquare_ui import Gtk  # noqa: E402
+from gi.repository import GLib  # noqa: E402
+
+AIUTANTE = "/usr/local/lib/gisquare-os/installa-programmi"
+
+# chiave, nome, descrizione, dimensione indicativa, icona, pacchetto da controllare
+CATALOGO = [
+    ("libreoffice", "LibreOffice", "Scrittura, fogli di calcolo e presentazioni, compatibile con Word, Excel e PowerPoint.",
+     "circa 150 MB", "libreoffice-startcenter", "libreoffice-writer"),
+    ("gimp", "GIMP", "Ritocco delle foto e disegno: livelli, filtri, ritagli, come un programma professionale.",
+     "circa 100 MB", "gimp", "gimp"),
+    ("inkscape", "Inkscape", "Disegno vettoriale: loghi, schemi, manifesti, file per taglio laser e plotter.",
+     "circa 110 MB", "inkscape", "inkscape"),
+    ("audacity", "Audacity", "Registra e monta l'audio: voce, interviste, podcast, musica.",
+     "circa 40 MB", "audacity", "audacity"),
+    ("shotcut", "Shotcut", "Montaggio video semplice: tagli, titoli, transizioni, esportazione per il web.",
+     "circa 120 MB", "shotcut", "shotcut"),
+]
+
+
+def installato(pacchetto):
+    r = subprocess.run(["dpkg-query", "-W", "-f=${Status}", pacchetto],
+                       capture_output=True, text=True)
+    return r.stdout.strip() == "install ok installed"
+
+
+def internet():
+    try:
+        socket.getaddrinfo("deb.debian.org", 80)
+        return True
+    except OSError:
+        return False
+
+
+class Catalogo:
+    def __init__(self):
+        self.win = ui.finestra("Installa altri programmi", 780, 760)
+        radice = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.win.add(radice)
+
+        corpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        corpo.set_border_width(28)
+        corpo.pack_start(ui.intestazione("Installa altri programmi",
+                                         "Scegli i programmi che ti servono: si scaricano da Internet "
+                                         "e si installano con un clic."), False, False, 0)
+        if ui.live_senza_salvataggio():
+            av = ui.classe(Gtk.Box(), "avviso")
+            av.pack_start(ui.etichetta(
+                "<b>Stai usando la chiavetta senza salvataggio.</b> I programmi installati restano "
+                "disponibili solo fino allo spegnimento.", markup=True, avvolgi=True), True, True, 0)
+            corpo.pack_start(av, False, False, 0)
+
+        self.pila = Gtk.Stack()
+        self.pila.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        corpo.pack_start(self.pila, True, True, 0)
+        radice.pack_start(corpo, True, True, 0)
+
+        # elenco
+        scorri = Gtk.ScrolledWindow()
+        scorri.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.elenco = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        scorri.add(self.elenco)
+        self.pila.add_named(scorri, "elenco")
+
+        # avanzamento
+        av = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        av.set_valign(Gtk.Align.CENTER)
+        self.passo = ui.etichetta("", "nome", xalign=0.5)
+        self.barra = Gtk.ProgressBar()
+        self.dettaglio = ui.etichetta("", "tenue", xalign=0.5)
+        self.dettaglio.set_ellipsize(3)
+        for w in (self.passo, self.barra, self.dettaglio):
+            av.pack_start(w, False, False, 0)
+        self.pila.add_named(av, "avanzamento")
+
+        # barra in basso
+        barra = ui.classe(Gtk.Box(spacing=12), "barra")
+        self.nota = ui.etichetta("Serve la connessione a Internet.", "tenue")
+        barra.pack_start(self.nota, True, True, 0)
+        self.chiudi = ui.classe(Gtk.Button(label="Chiudi"), "secondario")
+        self.chiudi.connect("clicked", lambda *_: self.win.destroy())
+        self.installa = ui.classe(Gtk.Button(label="Installa i programmi scelti"), "primario")
+        self.installa.connect("clicked", self.avvia_installazione)
+        barra.pack_end(self.installa, False, False, 0)
+        barra.pack_end(self.chiudi, False, False, 0)
+        radice.pack_end(barra, False, False, 0)
+
+        self.riempi()
+        self.win.show_all()
+
+    def riempi(self):
+        for f in self.elenco.get_children():
+            self.elenco.remove(f)
+        self.scelte = {}
+        for chiave, nome, descr, dim, icona, pacchetto in CATALOGO:
+            riga = ui.classe(Gtk.Box(spacing=16), "scheda")
+            img = Gtk.Image.new_from_icon_name(icona, Gtk.IconSize.DIALOG)
+            img.set_pixel_size(48)
+            riga.pack_start(img, False, False, 0)
+            testi = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+            testi.pack_start(ui.etichetta(nome, "nome"), False, False, 0)
+            testi.pack_start(ui.etichetta(descr, "descrizione", avvolgi=True), False, False, 0)
+            testi.pack_start(ui.etichetta(dim, "tenue"), False, False, 0)
+            riga.pack_start(testi, True, True, 0)
+            if installato(pacchetto):
+                riga.pack_end(ui.etichetta("✓ Installato", "stato-ok"), False, False, 0)
+            else:
+                spunta = ui.classe(Gtk.CheckButton(), "spunta")
+                spunta.set_valign(Gtk.Align.CENTER)
+                spunta.connect("toggled", lambda *_: self.aggiorna_pulsante())
+                self.scelte[chiave] = spunta
+                riga.pack_end(spunta, False, False, 0)
+            self.elenco.pack_start(riga, False, False, 0)
+        self.elenco.show_all()
+        self.aggiorna_pulsante()
+
+    def scelti(self):
+        return [k for k, s in self.scelte.items() if s.get_active()]
+
+    def aggiorna_pulsante(self):
+        self.installa.set_sensitive(bool(self.scelti()))
+
+    def messaggio(self, tipo, testo):
+        d = Gtk.MessageDialog(transient_for=self.win, modal=True, message_type=tipo,
+                              buttons=Gtk.ButtonsType.OK, text=testo)
+        d.run()
+        d.destroy()
+
+    def avvia_installazione(self, *_):
+        scelti = self.scelti()
+        if not scelti:
+            return
+        if not internet():
+            self.messaggio(Gtk.MessageType.ERROR, "Nessuna connessione a Internet.\nCollegati alla rete e riprova.")
+            return
+        if subprocess.run(["sudo", "-n", "true"], capture_output=True).returncode == 0:
+            cmd = ["sudo", "-n", AIUTANTE] + scelti
+        else:
+            cmd = ["pkexec", AIUTANTE] + scelti
+        self.registro = open("/tmp/gisquare-programmi.log", "w")
+        self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     text=True, bufsize=1)
+        self.pila.set_visible_child_name("avanzamento")
+        self.passo.set_text("Preparazione...")
+        self.installa.set_sensitive(False)
+        self.chiudi.set_sensitive(False)
+        GLib.io_add_watch(self.proc.stdout, GLib.PRIORITY_DEFAULT, GLib.IO_IN | GLib.IO_HUP, self.leggi)
+        self.pulsa = GLib.timeout_add(120, lambda: (self.barra.pulse(), True)[1])
+
+    def leggi(self, sorgente, condizione):
+        riga = sorgente.readline()
+        if riga:
+            self.registro.write(riga)
+            riga = riga.strip()
+            if riga.startswith("PASSO: "):
+                self.passo.set_text(riga[7:])
+            elif riga:
+                self.dettaglio.set_text(riga)
+            return True
+        self.proc.wait()
+        self.registro.close()
+        GLib.source_remove(self.pulsa)
+        self.barra.set_fraction(1.0)
+        self.chiudi.set_sensitive(True)
+        if self.proc.returncode == 0:
+            self.messaggio(Gtk.MessageType.INFO, "Fatto! I programmi sono nel menu delle applicazioni.")
+        else:
+            self.messaggio(Gtk.MessageType.ERROR, "L'installazione non è riuscita.\n"
+                                                  "Dettagli nel file /tmp/gisquare-programmi.log")
+        self.pila.set_visible_child_name("elenco")
+        self.riempi()
+        return False
+
+
+if __name__ == "__main__":
+    Catalogo()
+    Gtk.main()

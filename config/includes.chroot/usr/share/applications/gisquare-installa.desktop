@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Installa GiSquare OS
+Comment=Installa GiSquare OS sul disco di questo computer
+Exec=gisquare-installa
+Icon=gisquare-installa
+Terminal=false
+Categories=System;
+TryExec=calamares

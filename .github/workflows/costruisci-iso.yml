@@ -1,0 +1,173 @@
+# GiSquare OS - costruzione della ISO su GitHub (senza usare il proprio PC)
+# Actions > "Costruisci GiSquare OS" > Run workflow. Al termine la ISO si scarica
+# dalla pagina "Releases" del repository (le release non consumano i 500 MB di
+# spazio degli Artifacts del piano gratuito). Negli Artifacts resta solo il registro.
+name: Costruisci GiSquare OS
+
+on:
+  workflow_dispatch:
+    inputs:
+      versione:
+        description: "Versione di GiSquare OS"
+        default: "1.0"
+        required: true
+      ufficiale:
+        description: "Versione ufficiale (release pubblica v<versione> e pubblicazione degli aggiornamenti)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # serve per creare la release con la ISO
+
+jobs:
+  iso:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - name: Libera spazio sul disco della macchina di build
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - name: Scarica l'ultima versione di GiSquare Circuiti
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_CIRCUITI: ${{ vars.GISQUARE_REPO_CIRCUITI || 'gisquarecircuiti/GiSquareCircuiti' }}
+        run: |
+          mkdir -p pacchetti
+          if ! ls pacchetti/*.deb >/dev/null 2>&1; then
+            gh release download --repo "$REPO_CIRCUITI" --pattern '*amd64.deb' --dir pacchetti
+          fi
+          ls -lh pacchetti
+
+      - name: Costruisci la ISO (dentro Debian 13)
+        run: |
+          docker run --rm --privileged \
+            -v "$PWD":/progetto -w /progetto \
+            -e GISQUARE_VERSIONE="${{ inputs.versione }}" \
+            -e GISQUARE_REPO_OS="${{ github.repository }}" \
+            -e GISQUARE_APT_URL="${{ vars.GISQUARE_APT_URL }}" \
+            debian:trixie bash ./costruisci.sh
+
+      - name: Pubblica la ISO come release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSIONE: ${{ inputs.versione }}
+          UFFICIALE: ${{ inputs.ufficiale }}
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" output
+          cd output
+          ISO="GiSquare-OS-${VERSIONE}-amd64.iso"
+          ls -lh
+          FILE=("$ISO.sha256" gisquare-os_*_all.deb)
+          # GitHub accetta file fino a 2 GiB: se la ISO e' piu' grande la divido in parti
+          if [ "$(stat -c %s "$ISO")" -lt 2000000000 ]; then
+            FILE+=("$ISO")
+            NOTE="Scarica **$ISO** e scrivila sulla chiavetta con Rufus (vedi LEGGIMI.md)."
+          else
+            split -b 1900M -d -a 2 "$ISO" "$ISO.parte"
+            sha256sum "$ISO".parte* > "$ISO.parti.sha256"
+            FILE+=("$ISO".parte* "$ISO.parti.sha256")
+            ELENCO=$(ls "$ISO".parte* | tr '\n' '+' | sed 's/+$//')
+            NOTE="La ISO e' divisa in parti (GitHub accetta file fino a 2 GB). Scarica tutte le parti nella stessa cartella e ricomponile.
+
+          **Windows** (Prompt dei comandi, nella cartella dei download):
+          \`\`\`
+          copy /b ${ELENCO} ${ISO}
+          \`\`\`
+          **Linux/macOS:** \`cat $ISO.parte* > $ISO\`
+
+          Poi controlla che l'impronta SHA-256 corrisponda a quella nel file \`$ISO.sha256\`."
+          fi
+          if [ "$UFFICIALE" = "true" ]; then
+            # versione ufficiale: tag v<versione>, segnata come "ultima" (la usa l'avviso nuove versioni)
+            gh release create "v${VERSIONE}" "${FILE[@]}" \
+              --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+              --title "GiSquare OS ${VERSIONE}" --notes "$NOTE" --latest
+          else
+            gh release create "v${VERSIONE}-build${{ github.run_number }}" "${FILE[@]}" \
+              --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+              --title "GiSquare OS ${VERSIONE} (build ${{ github.run_number }})" \
+              --notes "$NOTE" --prerelease
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: registro-GiSquare-OS-${{ inputs.versione }}
+          path: |
+            output/*.log
+            output/*.sha256
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pacchetto-gisquare-os
+          path: output/gisquare-os_*_all.deb
+          retention-days: 7
+
+  # Archivio degli aggiornamenti GiSquare (repository APT firmato) sulle pagine GitHub del
+  # progetto: i computer con GiSquare OS installato lo controllano insieme a Debian.
+  # Gira solo per le versioni ufficiali e solo se c'è la chiave di firma (segreto
+  # GISQUARE_CHIAVE_FIRMA): vedi AGGIORNAMENTI.md.
+  aggiornamenti:
+    needs: iso
+    if: inputs.ufficiale
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.pagine.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pacchetto-gisquare-os
+          path: pacchetto
+
+      - name: Crea l'archivio firmato
+        id: archivio
+        env:
+          CHIAVE: ${{ secrets.GISQUARE_CHIAVE_FIRMA }}
+        run: |
+          if [ -z "$CHIAVE" ]; then
+            echo "::warning::Manca il segreto GISQUARE_CHIAVE_FIRMA: aggiornamenti non pubblicati (vedi AGGIORNAMENTI.md)"
+            echo "pronto=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          export GNUPGHOME="$(mktemp -d)"
+          printf '%s\n' "$CHIAVE" | gpg --batch --import
+          IMPRONTA=$(gpg --batch --with-colons --list-secret-keys | awk -F: '/^fpr/{print $10; exit}')
+          # pagine del sito (se ci sono) + archivio degli aggiornamenti in apt/
+          mkdir -p pub
+          [ -d sito ] && cp -a sito/. pub/
+          A=pub/apt; mkdir -p "$A/pool/main" "$A/dists/trixie/main/binary-amd64"
+          cp pacchetto/*.deb "$A/pool/main/"
+          cp chiave-aggiornamenti.asc pub/ 2>/dev/null || true
+          ( cd "$A" && apt-ftparchive packages pool > dists/trixie/main/binary-amd64/Packages \
+              && gzip -kf dists/trixie/main/binary-amd64/Packages )
+          apt-ftparchive \
+            -o APT::FTPArchive::Release::Origin="GiSquare OS" -o APT::FTPArchive::Release::Label="GiSquare OS" \
+            -o APT::FTPArchive::Release::Suite=trixie -o APT::FTPArchive::Release::Codename=trixie \
+            -o APT::FTPArchive::Release::Architectures="amd64 all" -o APT::FTPArchive::Release::Components=main \
+            release "$A/dists/trixie" > "$A/dists/trixie/Release"
+          gpg --batch --yes --local-user "$IMPRONTA" --clearsign -o "$A/dists/trixie/InRelease" "$A/dists/trixie/Release"
+          gpg --batch --yes --local-user "$IMPRONTA" -abs -o "$A/dists/trixie/Release.gpg" "$A/dists/trixie/Release"
+          rm -rf "$GNUPGHOME"
+          find pub -type f | sort
+          echo "pronto=si" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.archivio.outputs.pronto == 'si'
+        with:
+          path: pub
+
+      - id: pagine
+        if: steps.archivio.outputs.pronto == 'si'
+        uses: actions/deploy-pages@v4

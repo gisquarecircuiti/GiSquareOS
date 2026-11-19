@@ -1,0 +1,47 @@
+#!/bin/bash
+# GiSquare OS - installa i programmi scelti in "Installa altri programmi".
+# Gira come amministratore (sudo o pkexec): accetta SOLO i nomi del catalogo qui sotto.
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
+
+pacchetti_di() {
+    case "$1" in
+        libreoffice) echo "libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-gtk3 libreoffice-l10n-it libreoffice-help-it hyphen-it mythes-it" ;;
+        gimp)        echo "gimp" ;;
+        inkscape)    echo "inkscape" ;;
+        audacity)    echo "audacity" ;;
+        shotcut)     echo "shotcut" ;;
+        *)           return 1 ;;
+    esac
+}
+
+[ "$#" -ge 1 ] || { echo "Uso: $0 programma..." >&2; exit 2; }
+DA_INSTALLARE=""
+for p in "$@"; do
+    pk=$(pacchetti_di "$p") || { echo "Programma non previsto: $p" >&2; exit 2; }
+    DA_INSTALLARE="$DA_INSTALLARE $pk"
+done
+
+echo "PASSO: Aggiorno l'elenco dei programmi..."
+apt-get update -q
+echo "PASSO: Scarico e installo (può richiedere qualche minuto)..."
+# shellcheck disable=SC2086
+apt-get install -y -q --no-install-recommends $DA_INSTALLARE
+
+# Con LibreOffice installato, i documenti di Office si aprono con LibreOffice
+if printf ' %s ' "$@" | grep -q ' libreoffice '; then
+    sed -i \
+        -e 's/=abiword\.desktop/=libreoffice-writer.desktop/' \
+        -e 's/=com\.abisource\.AbiWord\.desktop/=libreoffice-writer.desktop/' \
+        -e 's/=org\.gnome\.Gnumeric\.desktop/=libreoffice-calc.desktop/' \
+        -e 's/=gnumeric\.desktop/=libreoffice-calc.desktop/' \
+        /etc/xdg/mimeapps.list
+    if ! grep -q 'presentationml.presentation=' /etc/xdg/mimeapps.list; then
+        cat >> /etc/xdg/mimeapps.list <<'MIME'
+application/vnd.openxmlformats-officedocument.presentationml.presentation=libreoffice-impress.desktop
+application/vnd.ms-powerpoint=libreoffice-impress.desktop
+application/vnd.oasis.opendocument.presentation=libreoffice-impress.desktop
+MIME
+    fi
+fi
+echo "PASSO: Fatto."

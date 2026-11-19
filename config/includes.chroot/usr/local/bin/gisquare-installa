@@ -1,0 +1,32 @@
+#!/bin/bash
+# GiSquare OS - avvia l'installazione sul disco del computer (Calamares)
+set -u
+
+if [ ! -d /run/live ]; then
+    zenity --info --title="Installa GiSquare OS" --width=380 \
+        --text="GiSquare OS è già installato su questo computer."
+    exit 0
+fi
+
+zenity --question --title="Installa GiSquare OS" --width=460 \
+    --ok-label="Continua" --cancel-label="Annulla" \
+    --text="Stai per installare GiSquare OS sul disco di questo computer.\n\n<b>Se scegli di cancellare il disco, tutti i file che contiene andranno persi.</b>\nSe devi prima recuperare dei file, fallo adesso e annulla.\n\nPer installare, la protezione dei dischi interni verrà disattivata." \
+    || exit 0
+
+# L'installer deve poter scrivere sul disco interno
+if sudo -n true 2>/dev/null; then
+    sudo /usr/local/bin/gisquare-dischi sblocca
+else
+    pkexec /usr/local/bin/gisquare-dischi sblocca || exit 1
+fi
+
+# Il lanciatore di Debian sistema anche /etc/fstab prima di avviare Calamares
+if command -v calamares-install-debian >/dev/null 2>&1; then
+    exec calamares-install-debian
+elif command -v install-debian >/dev/null 2>&1; then
+    exec install-debian
+elif sudo -n true 2>/dev/null; then
+    exec sudo -E calamares
+else
+    exec pkexec calamares
+fi

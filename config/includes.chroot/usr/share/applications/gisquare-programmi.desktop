@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Installa altri programmi
+Comment=LibreOffice, GIMP, Inkscape, Audacity, Shotcut con un clic
+Exec=gisquare-programmi
+Icon=gisquare-programmi
+Terminal=false
+Categories=System;Settings;
+Keywords=installa;programmi;libreoffice;gimp;inkscape;audacity;shotcut;

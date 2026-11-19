@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Protezione dischi
+Comment=Sola lettura o scrittura sui dischi del computer
+Exec=gisquare-dischi
+Icon=security-high
+Terminal=false
+Categories=System;

@@ -1,0 +1,94 @@
+#!/usr/bin/python3
+"""GiSquare OS - Salvataggio sulla chiavetta: dice se i file vengono salvati,
+quanto spazio resta e come non perdere nulla."""
+import os
+import sys
+
+sys.path.insert(0, "/usr/local/lib/gisquare-os")
+import gisquare_ui as ui  # noqa: E402
+from gisquare_ui import Gtk  # noqa: E402
+
+REGOLE = [
+    ("Spegni sempre dal menu", "Menu → Esci → Spegni, e togli la chiavetta solo a computer spento. "
+                               "Strapparla mentre è accesa può rovinare i file salvati."),
+    ("Fai una copia ogni settimana", "Copia la tua cartella personale (Documenti, Immagini, i circuiti...) "
+                                     "su un'altra chiavetta, sul computer o in cloud."),
+    ("Non riempirla del tutto", "Tieni libero almeno il 10% dello spazio di salvataggio: "
+                                "se si riempie, i programmi non riescono più a salvare."),
+    ("Usa una chiavetta buona", "USB 3, da almeno 16 GB, di una marca affidabile: "
+                                "è più veloce e dura di più."),
+]
+
+
+class Salvataggio:
+    def __init__(self):
+        self.win = ui.finestra("Salvataggio sulla chiavetta", 780, 700)
+        radice = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.win.add(radice)
+        corpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        corpo.set_border_width(28)
+        corpo.pack_start(ui.intestazione("Salvataggio sulla chiavetta"), False, False, 0)
+
+        stato = ui.stato_salvataggio()
+        if stato["modo"] == "installato":
+            box = ui.classe(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4), "ok")
+            box.pack_start(ui.etichetta("<b>GiSquare OS è installato su questo computer.</b>", markup=True), False, False, 0)
+            box.pack_start(ui.etichetta("I tuoi file si salvano sul disco del computer. "
+                                        "Fai comunque una copia ogni tanto su una chiavetta o in cloud.",
+                                        avvolgi=True), False, False, 0)
+            corpo.pack_start(box, False, False, 0)
+        elif stato["modo"] == "chiavetta":
+            usato = 1 - stato["libero"] / stato["totale"] if stato["totale"] else 0
+            classe = "avviso" if usato > 0.85 else "ok"
+            box = ui.classe(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8), classe)
+            titolo = ("<b>Il salvataggio è attivo, ma lo spazio sta finendo.</b>" if usato > 0.85
+                      else "<b>Il salvataggio è attivo: i tuoi file restano sulla chiavetta.</b>")
+            box.pack_start(ui.etichetta(titolo, markup=True), False, False, 0)
+            barra = Gtk.ProgressBar()
+            barra.set_fraction(usato)
+            box.pack_start(barra, False, False, 0)
+            box.pack_start(ui.etichetta(f"Liberi {ui.gb(stato['libero'])} su {ui.gb(stato['totale'])}. "
+                                        "Si conservano: cartella personale, impostazioni, reti Wi-Fi, "
+                                        "stampanti e programmi installati.", avvolgi=True), False, False, 0)
+            corpo.pack_start(box, False, False, 0)
+        else:
+            box = ui.classe(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6), "avviso")
+            box.pack_start(ui.etichetta("<b>Questa chiavetta non salva i tuoi file.</b>", markup=True), False, False, 0)
+            box.pack_start(ui.etichetta(
+                "Allo spegnimento si perde tutto: file, impostazioni e programmi installati. "
+                "Per ora salva il lavoro su un'altra chiavetta o in cloud.\n\n"
+                "<b>Per avere il salvataggio</b> rifai la chiavetta da Windows con <b>Rufus</b>: scegli la ISO "
+                "di GiSquare OS e sposta il cursore <b>«Dimensione partizione persistente»</b> "
+                "(per esempio 8 GB o più). Tutti i passaggi sono nella guida.",
+                markup=True, avvolgi=True), False, False, 0)
+            corpo.pack_start(box, False, False, 0)
+
+        corpo.pack_start(ui.etichetta("Le regole d'oro", "nome"), False, False, 4)
+        for titolo, testo in REGOLE:
+            riga = ui.classe(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2), "scheda")
+            riga.pack_start(ui.etichetta(titolo, "nome"), False, False, 0)
+            riga.pack_start(ui.etichetta(testo, "descrizione", avvolgi=True), False, False, 0)
+            corpo.pack_start(riga, False, False, 0)
+
+        scorri = Gtk.ScrolledWindow()
+        scorri.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scorri.add(corpo)
+        radice.pack_start(scorri, True, True, 0)
+
+        barra = ui.classe(Gtk.Box(spacing=12), "barra")
+        cartella = ui.classe(Gtk.Button(label="Apri la cartella personale"), "secondario")
+        cartella.connect("clicked", lambda *_: ui.apri(os.path.expanduser("~")))
+        barra.pack_start(cartella, False, False, 0)
+        chiudi = ui.classe(Gtk.Button(label="Chiudi"), "secondario")
+        chiudi.connect("clicked", lambda *_: self.win.destroy())
+        guida = ui.classe(Gtk.Button(label="Guida completa"), "primario")
+        guida.connect("clicked", lambda *_: ui.apri(ui.GUIDA_CHIAVETTA))
+        barra.pack_end(guida, False, False, 0)
+        barra.pack_end(chiudi, False, False, 0)
+        radice.pack_end(barra, False, False, 0)
+        self.win.show_all()
+
+
+if __name__ == "__main__":
+    Salvataggio()
+    Gtk.main()

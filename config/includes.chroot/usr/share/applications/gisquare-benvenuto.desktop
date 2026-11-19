@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Benvenuto in GiSquare OS
+Comment=Le cose da fare per iniziare
+Exec=gisquare-benvenuto
+Icon=gisquare-os
+Terminal=false
+Categories=System;

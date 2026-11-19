@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=GiSquare OS - avviso nuova versione
+Exec=sh -c 'sleep 90; exec gisquare-nuova-versione'
+OnlyShowIn=XFCE;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

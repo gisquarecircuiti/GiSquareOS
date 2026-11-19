@@ -1,0 +1,10 @@
+#!/bin/sh
+# GiSquare OS - dopo un aggiornamento del pacchetto riapplica le personalizzazioni.
+# Alla prima installazione (dentro la costruzione della ISO) non fa nulla:
+# lì ci pensa l'hook di live-build, quando tutti gli altri programmi sono installati.
+set -e
+if [ "$1" = configure ] && [ -n "${2:-}" ]; then
+    /usr/lib/gisquare-os/configura \
+        || echo "W: gisquare-os: personalizzazione non completata (vedi i messaggi sopra)" >&2
+fi
+exit 0

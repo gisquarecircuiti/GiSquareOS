@@ -1,0 +1,68 @@
+#!/bin/bash
+# GiSquare OS - Centro recupero dati
+set -u
+TITOLO="Recupero dati"
+
+terminale() {
+    # $1 = titolo, resto = comando
+    local t="$1"; shift
+    xfce4-terminal --title="$t" --hold -x "$@"
+}
+
+copia_disco() {
+    local righe=() nome tran dim modello
+    while read -r nome tran dim modello; do
+        righe+=(FALSE "$nome" "${tran:--}" "$dim" "${modello:-}")
+    done < <(lsblk -dnpo NAME,TRAN,SIZE,MODEL | grep -Ev '/dev/(loop|sr|ram|zram)')
+
+    local sorgente
+    sorgente=$(zenity --list --radiolist --title="$TITOLO - copia di un disco danneggiato" \
+        --width=660 --height=360 \
+        --text="1/2 - Scegli il disco <b>danneggiato</b> da copiare.\nddrescue legge prima le zone sane e poi riprova quelle difettose, senza mai scrivere sul disco." \
+        --column="" --column="Disco" --column="Bus" --column="Dimensione" --column="Modello" \
+        "${righe[@]}") || return
+    [ -n "$sorgente" ] || return
+
+    local cartella
+    cartella=$(zenity --file-selection --directory \
+        --title="2/2 - Scegli dove salvare la copia (un disco USB con spazio libero sufficiente)") || return
+
+    local serve libero
+    serve=$(lsblk -bdno SIZE "$sorgente")
+    libero=$(df --output=avail -B1 "$cartella" | tail -1)
+    if [ "$libero" -lt "$serve" ]; then
+        zenity --error --title="$TITOLO" --width=440 \
+            --text="Spazio insufficiente in $cartella.\nServono $(numfmt --to=iec "$serve") e ce ne sono $(numfmt --to=iec "$libero")."
+        return
+    fi
+
+    local base
+    base="$cartella/copia-$(basename "$sorgente")-$(date +%Y%m%d-%H%M)"
+    terminale "Copia del disco $sorgente" sudo ddrescue -d -r3 "$sorgente" "$base.img" "$base.map"
+    zenity --info --title="$TITOLO" --width=480 \
+        --text="Al termine troverai la copia in:\n$base.img\n\nPuoi aprirla con il programma Dischi (Allega immagine disco) oppure analizzarla con PhotoRec.\nSe la copia si interrompe, rilanciala sulla stessa cartella: ddrescue riprende da dove era rimasto grazie al file .map."
+}
+
+scelta=$(zenity --list --title="$TITOLO" --width=620 --height=470 \
+    --text="Cosa vuoi fare?  In modalità live i dischi interni sono protetti in sola lettura." \
+    --column="Strumento" --column="A cosa serve" --column="id" --hide-column=3 --print-column=3 \
+    "Guida"              "Come recuperare i file, passo per passo"            guida \
+    "Esplora i dischi"   "Apri i dischi e copia i file su una chiavetta USB"  esplora \
+    "PhotoRec"           "Ritrova file cancellati o da dischi formattati"     photorec \
+    "TestDisk"           "Ritrova partizioni perse e ripara l'avvio"          testdisk \
+    "Salute dei dischi"  "Controlla se un disco si sta guastando (SMART)"    smart \
+    "Copia disco"        "Copia un disco danneggiato prima che peggiori"     ddrescue \
+    "Dischi"             "Gestione dischi e apertura di immagini disco"      dischi \
+    "Protezione dischi"  "Sblocca o blocca la scrittura sui dischi"          protezione \
+    ) || exit 0
+
+case "$scelta" in
+    guida)      xdg-open "file:///usr/share/gisquare-os/guida.html#recupero" ;;
+    esplora)    thunar ;;
+    photorec)   terminale "PhotoRec - recupero file" sudo photorec ;;
+    testdisk)   terminale "TestDisk" sudo testdisk ;;
+    smart)      if command -v gsmartcontrol-root >/dev/null; then gsmartcontrol-root; else pkexec gsmartcontrol; fi ;;
+    ddrescue)   copia_disco ;;
+    dischi)     gnome-disks ;;
+    protezione) gisquare-dischi ;;
+esac

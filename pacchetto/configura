@@ -1,0 +1,428 @@
+#!/bin/sh
+# GiSquare OS - applica le personalizzazioni GiSquare al sistema.
+#
+# Fa parte del pacchetto "gisquare-os": gira durante la costruzione della ISO e, sui
+# computer con GiSquare OS installato, a ogni aggiornamento del pacchetto. Per questo
+# ogni passo deve poter essere ripetuto senza danni.
+set -e
+
+# 0. File di GiSquare OS (script, grafica, impostazioni) al loro posto
+cp -a /usr/share/gisquare-os/sistema/. /
+chmod 755 /usr/local/bin/gisquare-* /usr/local/lib/gisquare-os/installa-programmi
+
+. /etc/gisquare-os-release   # GISQUARE_VERSIONE, GISQUARE_SITO
+echo "I: GiSquare OS ${GISQUARE_VERSIONE}: personalizzazione"
+
+# ---------------------------------------------------------------------------
+# 1. Nome del sistema (os-release). La versione Debian viene messa da parte con
+#    dpkg-divert, così gli aggiornamenti di base-files non sovrascrivono la nostra.
+# ---------------------------------------------------------------------------
+if ! dpkg-divert --list /usr/lib/os-release | grep -q os-release.debian; then
+    dpkg-divert --package gisquare-os --local --rename \
+        --divert /usr/lib/os-release.debian --add /usr/lib/os-release
+fi
+. /usr/lib/os-release.debian
+cat > /usr/lib/os-release <<EOF
+PRETTY_NAME="GiSquare OS ${GISQUARE_VERSIONE} (basato su Debian ${VERSION_ID})"
+NAME="GiSquare OS"
+VERSION_ID="${VERSION_ID}"
+VERSION="${GISQUARE_VERSIONE} (${VERSION_CODENAME})"
+VERSION_CODENAME=${VERSION_CODENAME}
+ID=debian
+HOME_URL="${GISQUARE_SITO}"
+SUPPORT_URL="${GISQUARE_SITO}"
+BUG_REPORT_URL="https://bugs.debian.org/"
+LOGO=gisquare-os
+EOF
+ln -sf ../usr/lib/os-release /etc/os-release
+printf 'GiSquare OS %s \\n \\l\n\n' "${GISQUARE_VERSIONE}" > /etc/issue
+printf 'GiSquare OS %s\n' "${GISQUARE_VERSIONE}" > /etc/issue.net
+
+# ---------------------------------------------------------------------------
+# 2. Lingua italiana
+# ---------------------------------------------------------------------------
+sed -i 's/^# *\(it_IT.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+locale-gen
+update-locale LANG=it_IT.UTF-8
+ln -sf /usr/share/zoneinfo/Europe/Rome /etc/localtime
+echo "Europe/Rome" > /etc/timezone
+cat > /etc/default/keyboard <<'EOF'
+XKBMODEL="pc105"
+XKBLAYOUT="it"
+XKBVARIANT=""
+XKBOPTIONS=""
+BACKSPACE="guess"
+EOF
+
+# ---------------------------------------------------------------------------
+# 3. Icone, programmi predefiniti
+# ---------------------------------------------------------------------------
+gtk-update-icon-cache -f -q /usr/share/icons/hicolor || true
+
+trova() {  # restituisce il primo file .desktop esistente tra quelli indicati
+    for d in "$@"; do
+        if [ -f "/usr/share/applications/$d" ]; then echo "$d"; return 0; fi
+    done
+    echo "$1"
+}
+SCRITTURA=$(trova abiword.desktop com.abisource.AbiWord.desktop)
+CALCOLO=$(trova org.gnome.Gnumeric.desktop gnumeric.desktop)
+PDF=$(trova atril.desktop org.mate.atril.desktop)
+BROWSER=$(trova chromium.desktop firefox-esr.desktop)
+IMMAGINI=$(trova org.xfce.ristretto.desktop ristretto.desktop)
+TESTO=$(trova org.xfce.mousepad.desktop mousepad.desktop)
+VIDEO=$(trova vlc.desktop)
+
+cat > /etc/xdg/mimeapps.list <<EOF
+[Default Applications]
+application/msword=${SCRITTURA}
+application/vnd.openxmlformats-officedocument.wordprocessingml.document=${SCRITTURA}
+application/vnd.oasis.opendocument.text=${SCRITTURA}
+application/rtf=${SCRITTURA}
+application/vnd.ms-excel=${CALCOLO}
+application/vnd.openxmlformats-officedocument.spreadsheetml.sheet=${CALCOLO}
+application/vnd.oasis.opendocument.spreadsheet=${CALCOLO}
+text/csv=${CALCOLO}
+application/pdf=${PDF}
+text/html=${BROWSER}
+x-scheme-handler/http=${BROWSER}
+x-scheme-handler/https=${BROWSER}
+application/xhtml+xml=${BROWSER}
+image/png=${IMMAGINI}
+image/jpeg=${IMMAGINI}
+text/plain=${TESTO}
+video/mp4=${VIDEO}
+video/x-matroska=${VIDEO}
+video/webm=${VIDEO}
+video/x-msvideo=${VIDEO}
+video/quicktime=${VIDEO}
+video/mpeg=${VIDEO}
+audio/mpeg=${VIDEO}
+audio/mp4=${VIDEO}
+audio/x-wav=${VIDEO}
+audio/ogg=${VIDEO}
+audio/flac=${VIDEO}
+EOF
+
+# Se l'utente ha installato LibreOffice, i documenti di Office restano a LibreOffice
+if dpkg-query -W -f='${Status}' libreoffice-writer 2>/dev/null | grep -q "install ok installed"; then
+    sed -i -e "s/=${SCRITTURA}/=libreoffice-writer.desktop/" -e "s/=${CALCOLO}/=libreoffice-calc.desktop/" \
+        /etc/xdg/mimeapps.list
+    cat >> /etc/xdg/mimeapps.list <<'MIME'
+application/vnd.openxmlformats-officedocument.presentationml.presentation=libreoffice-impress.desktop
+application/vnd.ms-powerpoint=libreoffice-impress.desktop
+application/vnd.oasis.opendocument.presentation=libreoffice-impress.desktop
+MIME
+fi
+
+# Chromium browser predefinito anche per i programmi che usano x-www-browser e per XFCE
+if [ -x /usr/bin/chromium ]; then
+    update-alternatives --set x-www-browser /usr/bin/chromium || true
+    mkdir -p /etc/xdg/xfce4
+    printf 'WebBrowser=chromium\n' > /etc/xdg/xfce4/helpers.rc
+fi
+
+# ---------------------------------------------------------------------------
+# 4. XFCE: tema, pannello con menu Whisker e logo GiSquare
+# ---------------------------------------------------------------------------
+XS=/etc/xdg/xfce4/xfconf/xfce-perchannel-xml
+mkdir -p "$XS"
+if [ -f "$XS/xsettings.xml" ]; then
+    sed -i -E \
+        -e 's|(name="ThemeName" type="string" value=")[^"]*|\1Greybird-dark|' \
+        -e 's|(name="IconThemeName" type="string" value=")[^"]*|\1Papirus-Dark|' \
+        -e 's|(name="FontName" type="string" value=")[^"]*|\1Inter 10|' \
+        "$XS/xsettings.xml"
+fi
+cat > "$XS/xfwm4.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfwm4" version="1.0">
+  <property name="general" type="empty">
+    <property name="theme" type="string" value="Greybird-dark"/>
+    <property name="use_compositing" type="bool" value="true"/>
+  </property>
+</channel>
+EOF
+# Pannello predefinito senza la domanda del primo avvio
+if [ -f /etc/xdg/xfce4/panel/default.xml ]; then
+    cp /etc/xdg/xfce4/panel/default.xml "$XS/xfce4-panel.xml"
+    sed -i 's|<property name="plugin-1" type="string" value="applicationsmenu"/>|<property name="plugin-1" type="string" value="whiskermenu"><property name="button-icon" type="string" value="gisquare-os"/><property name="show-button-title" type="bool" value="false"/></property>|' \
+        "$XS/xfce4-panel.xml"
+fi
+
+# Sfondo del desktop: XFCE 4.20 non crea subito le impostazioni dello sfondo, quindi
+# sostituiamo direttamente le immagini predefinite di XFCE con quella di GiSquare
+# (dpkg-divert: gli aggiornamenti di XFCE non le rimettono). Vale per ogni monitor.
+SFONDO=/usr/share/gisquare-os/sfondo.png
+echo "I: sfondi XFCE presenti: $(ls /usr/share/backgrounds/xfce/ 2>/dev/null | tr '\n' ' ')"
+for f in /usr/share/backgrounds/xfce/*; do
+    [ -f "$f" ] || continue
+    case "$f" in *.debian) continue ;; esac
+    if ! dpkg-divert --list "$f" | grep -q gisquare-os; then
+        dpkg-divert --package gisquare-os --local --rename --divert "$f.debian" --add "$f"
+    fi
+    case "$f" in
+        *.svg)  # un SVG che contiene la nostra immagine
+            {
+                printf '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1920" height="1080" viewBox="0 0 1920 1080">'
+                printf '<image width="1920" height="1080" xlink:href="data:image/png;base64,'
+                base64 -w0 "$SFONDO"
+                printf '"/></svg>\n'
+            } > "$f" ;;
+        *)      cp "$SFONDO" "$f" ;;
+    esac
+    echo "I: sfondo GiSquare al posto di $f"
+done
+
+# Cartelle azzurre in Papirus: come fa papirus-folders, i collegamenti delle cartelle
+# che puntano alla variante blu vengono fatti puntare alla variante "cyan".
+COLORE=cyan
+for tema in /usr/share/icons/Papirus /usr/share/icons/Papirus-Dark /usr/share/icons/Papirus-Light; do
+    [ -d "$tema" ] || continue
+    n=0
+    for d in "$tema"/*/places; do
+        [ -d "$d" ] || continue
+        for l in "$d"/*.svg; do
+            [ -L "$l" ] || continue
+            dest=$(readlink "$l")
+            case "$dest" in
+                *-blue-*|*-blue.svg) nuovo=$(printf '%s' "$dest" | sed "s/-blue\([-.]\)/-$COLORE\1/") ;;
+                *) continue ;;
+            esac
+            if [ -e "$d/$nuovo" ]; then ln -sf "$nuovo" "$l"; n=$((n+1)); fi
+        done
+    done
+    gtk-update-icon-cache -f -q "$tema" 2>/dev/null || true
+    echo "I: $tema: $n cartelle azzurre"
+done
+
+# Pannello in basso: semitrasparente (blu notte), icone grandi, con GiSquare Circuiti
+if [ -f "$XS/xfce4-panel.xml" ]; then
+    CIRCUITI=$(ls /usr/share/applications/ | grep -m1 '^gisquare-circuiti.*\.desktop$' || true)
+    python3 - "$XS/xfce4-panel.xml" "$CIRCUITI" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+percorso, circuiti = sys.argv[1], sys.argv[2]
+albero = ET.parse(percorso)
+radice = albero.getroot()
+def figlio(nodo, nome):
+    for p in nodo.findall("property"):
+        if p.get("name") == nome:
+            return p
+def imposta(nodo, nome, tipo, valore):
+    p = figlio(nodo, nome)
+    if p is None:
+        p = ET.SubElement(nodo, "property", name=nome)
+    p.attrib.update({"type": tipo, "value": str(valore)})
+pannelli = figlio(radice, "panels")
+p2 = figlio(pannelli, "panel-2")
+imposta(p2, "size", "uint", 64)
+imposta(p2, "icon-size", "uint", 48)
+imposta(p2, "autohide-behavior", "uint", 0)          # sempre visibile
+imposta(p2, "background-style", "uint", 1)          # colore pieno...
+rgba = figlio(p2, "background-rgba")
+if rgba is not None:
+    p2.remove(rgba)
+rgba = ET.SubElement(p2, "property", name="background-rgba", type="array")
+for v in (0.071, 0.122, 0.208, 0.72):                # ...blu notte #121f35 al 72%
+    ET.SubElement(rgba, "value", type="double", value=str(v))
+if circuiti:                                          # GiSquare Circuiti nel pannello
+    plugins = figlio(radice, "plugins")
+    nuovo = max(int(p.get("name").split("-")[1]) for p in plugins.findall("property")) + 1
+    pl = ET.SubElement(plugins, "property", name=f"plugin-{nuovo}", type="string", value="launcher")
+    items = ET.SubElement(pl, "property", name="items", type="array")
+    ET.SubElement(items, "value", type="string", value=circuiti)
+    ids = figlio(p2, "plugin-ids")
+    valori = list(ids)
+    # subito dopo il pulsante "mostra desktop" e il separatore
+    ids.insert(min(2, len(valori)), ET.Element("value", type="int", value=str(nuovo)))
+albero.write(percorso, encoding="UTF-8", xml_declaration=True)
+print("I: pannello in basso: semitrasparente, icone grandi" + (", con " + circuiti if circuiti else ""))
+PY
+fi
+
+# ---------------------------------------------------------------------------
+# 5. Installer Calamares con il marchio GiSquare OS
+# ---------------------------------------------------------------------------
+if [ -d /etc/calamares/branding/debian ]; then
+    B=/etc/calamares/branding/gisquare
+    rm -rf "$B"
+    cp -a /etc/calamares/branding/debian "$B"
+    cp /usr/share/gisquare-os/installer/*.png "$B/"
+    D="$B/branding.desc"
+    sed -i -E \
+        -e "s/^componentName:.*/componentName:  gisquare/" \
+        -e "s/^([[:space:]]*productName:).*/\1         GiSquare OS/" \
+        -e "s/^([[:space:]]*shortProductName:).*/\1    GiSquare OS/" \
+        -e "s/^([[:space:]]*version:).*/\1             ${GISQUARE_VERSIONE}/" \
+        -e "s/^([[:space:]]*shortVersion:).*/\1        ${GISQUARE_VERSIONE}/" \
+        -e "s/^([[:space:]]*versionedName:).*/\1       GiSquare OS ${GISQUARE_VERSIONE}/" \
+        -e "s/^([[:space:]]*shortVersionedName:).*/\1  GiSquare OS ${GISQUARE_VERSIONE}/" \
+        -e "s|^([[:space:]]*productUrl:).*|\1          ${GISQUARE_SITO}|" \
+        -e "s/^([[:space:]]*productLogo:).*/\1         \"logo.png\"/" \
+        -e "s/^([[:space:]]*productIcon:).*/\1         \"logo.png\"/" \
+        -e "s/^([[:space:]]*productWelcome:).*/\1      \"benvenuto.png\"/" \
+        -e "s/^slideshow:.*/slideshow:  \"show.qml\"/" \
+        -e "s/^([[:space:]]*[Ss]idebarBackground:).*/\1    \"#0a1426\"/" \
+        -e "s/^([[:space:]]*[Ss]idebarText:).*/\1          \"#FFFFFF\"/" \
+        -e "s/^([[:space:]]*[Ss]idebarTextSelect:).*/\1    \"#35d0a5\"/" \
+        -e "s/^([[:space:]]*[Ss]idebarTextCurrent:).*/\1   \"#35d0a5\"/" \
+        -e "s/^([[:space:]]*[Ss]idebarBackgroundCurrent:).*/\1 \"#16345f\"/" \
+        "$D"
+    if grep -q '^slideshowAPI:' "$D"; then
+        sed -i 's/^slideshowAPI:.*/slideshowAPI: 1/' "$D"
+    else
+        echo 'slideshowAPI: 1' >> "$D"
+    fi
+    cat > "$B/show.qml" <<'EOF'
+import QtQuick 2.0;
+import calamares.slideshow 1.0;
+
+Presentation {
+    id: presentation
+    Timer {
+        interval: 9000; running: true; repeat: true
+        onTriggered: presentation.goToNextSlide()
+    }
+    Slide { Image { anchors.fill: parent; source: "diapositiva1.png"; fillMode: Image.PreserveAspectFit } }
+    Slide { Image { anchors.fill: parent; source: "diapositiva2.png"; fillMode: Image.PreserveAspectFit } }
+    Slide { Image { anchors.fill: parent; source: "diapositiva3.png"; fillMode: Image.PreserveAspectFit } }
+}
+EOF
+    sed -i -E 's/^branding:.*/branding: gisquare/' /etc/calamares/settings.conf
+else
+    echo "W: branding Debian di Calamares non trovato: installer con grafica standard"
+fi
+
+# ---------------------------------------------------------------------------
+# 5b. Schermata di caricamento (Plymouth): tema "gisquare" basato su "spinner",
+#     con logo e rotellina azzurra (generati da grafica/genera-grafica.py)
+# ---------------------------------------------------------------------------
+T=/usr/share/plymouth/themes/gisquare
+if [ -d /usr/share/plymouth/themes/spinner ] && [ -f "$T/watermark.png" ]; then
+    for f in /usr/share/plymouth/themes/spinner/*.png; do
+        case "$(basename "$f")" in throbber-*|watermark.png) continue ;; esac
+        cp "$f" "$T/"
+    done
+    sed -e 's|^Name=.*|Name=GiSquare OS|' \
+        -e '/^Name\[/d' \
+        -e 's|^Description=.*|Description=Schermata di caricamento di GiSquare OS|' \
+        -e 's|^Font=.*|Font=Inter 12|' \
+        -e 's|^TitleFont=.*|TitleFont=Inter Light 28|' \
+        -e "s|^ImageDir=.*|ImageDir=$T|" \
+        -e 's|^VerticalAlignment=.*|VerticalAlignment=.80|' \
+        -e 's|^WatermarkVerticalAlignment=.*|WatermarkVerticalAlignment=.45|' \
+        -e 's|^BackgroundStartColor=.*|BackgroundStartColor=0x172b46|' \
+        -e 's|^BackgroundEndColor=.*|BackgroundEndColor=0x121f35|' \
+        -e 's|^ProgressBarBackgroundColor=.*|ProgressBarBackgroundColor=0x263a55|' \
+        -e 's|^ProgressBarForegroundColor=.*|ProgressBarForegroundColor=0x6dc8ff|' \
+        -e 's|^Title=Installing Updates.*|Title=Installazione degli aggiornamenti...|' \
+        -e 's|^Title=Upgrading System.*|Title=Aggiornamento del sistema...|' \
+        -e 's|^Title=Upgrading Firmware.*|Title=Aggiornamento del firmware...|' \
+        -e 's|^Title=Resetting System.*|Title=Ripristino del sistema...|' \
+        -e 's|^SubTitle=.*|SubTitle=Non spegnere il computer|' \
+        /usr/share/plymouth/themes/spinner/spinner.plymouth > "$T/gisquare.plymouth"
+    # Lo script di Debian che prepara l'avvio (initramfs-tools/hooks/plymouth), per i
+    # temi "two-step", sovrascrive watermark.png con il logo "debian 13" di desktop-base.
+    # Sostituiamo quei loghi con il nostro (dpkg-divert: resiste agli aggiornamenti).
+    for L in /usr/share/desktop-base/debian-logos/logo-text-version-64.png \
+             /usr/share/plymouth/debian-logo.png; do
+        if [ -e "$L" ] || [ -L "$L" ]; then
+            echo "I: logo Debian sostituito: $L"
+            if ! dpkg-divert --list "$L" | grep -q gisquare-os; then
+                dpkg-divert --package gisquare-os --local --rename --divert "$L.debian" --add "$L"
+            fi
+            rm -f "$L"
+            cp "$T/watermark.png" "$L"
+        fi
+    done
+    plymouth-set-default-theme gisquare
+    echo "I: schermata di caricamento GiSquare attiva"
+else
+    echo "W: Plymouth o il tema spinner non trovati: niente schermata di caricamento"
+fi
+
+# ---------------------------------------------------------------------------
+# 6. Varie
+# ---------------------------------------------------------------------------
+# Nasconde il collegamento "Install Debian": al suo posto c'è "Installa GiSquare OS"
+for f in /usr/share/applications/calamares-install-debian.desktop \
+         /usr/share/applications/install-debian.desktop \
+         /usr/share/applications/calamares.desktop; do
+    if [ -f "$f" ] && ! grep -q '^NoDisplay=true' "$f"; then
+        echo 'NoDisplay=true' >> "$f"
+    fi
+done
+# Niente icona "Install Debian" sul desktop: la mette gisquare-primo-avvio
+if [ -f /etc/xdg/autostart/calamares-desktop-icon.desktop ]; then
+    grep -q '^Hidden=true' /etc/xdg/autostart/calamares-desktop-icon.desktop \
+        || echo 'Hidden=true' >> /etc/xdg/autostart/calamares-desktop-icon.desktop
+fi
+# Negozio dei programmi: anche Flathub (GeoGebra e tanti altri programmi)
+if command -v flatpak >/dev/null 2>&1; then
+    flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo \
+        && echo "I: Flathub aggiunto" || echo "W: Flathub non aggiunto (rete?)"
+fi
+# GNOME Software non deve girare in background (scaricherebbe aggiornamenti da solo):
+# si apre quando lo si usa. Gli aggiornamenti li segnala package-update-indicator.
+for f in /etc/xdg/autostart/org.gnome.Software.desktop /etc/xdg/autostart/gnome-software-service.desktop; do
+    [ -f "$f" ] && ! grep -q '^Hidden=true' "$f" && echo 'Hidden=true' >> "$f"
+done
+# I file .deb si aprono con un doppio clic (GDebi, oppure il negozio)
+DEB_APP=$(trova gdebi.desktop org.gnome.Software.desktop)
+printf 'application/vnd.debian.binary-package=%s\napplication/x-deb=%s\n' "$DEB_APP" "$DEB_APP" >> /etc/xdg/mimeapps.list
+# Avviso degli aggiornamenti (icona nel pannello) solo sul sistema installato, non dalla chiavetta
+for f in $(grep -l 'Exec=package-update-indicator' /etc/xdg/autostart/*.desktop 2>/dev/null); do
+    grep -q '^Hidden=true' "$f" || echo 'Hidden=true' >> "$f"
+done
+if command -v package-update-indicator >/dev/null 2>&1; then
+    cat > /etc/xdg/autostart/gisquare-aggiornamenti.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=GiSquare OS - avviso aggiornamenti
+Exec=sh -c 'test -d /run/live || exec package-update-indicator'
+OnlyShowIn=XFCE;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+fi
+# Memoria compressa (zram): metà della RAM come memoria di scambio compressa (zstd).
+# Aiuta molto i PC con 2-4 GB, soprattutto dalla chiavetta dove non c'è swap su disco.
+if [ -f /etc/default/zramswap ]; then
+    sed -i -E -e 's/^#?\s*ALGO=.*/ALGO=zstd/' -e 's/^#?\s*PERCENT=.*/PERCENT=50/' /etc/default/zramswap
+    grep -q '^ALGO=' /etc/default/zramswap || echo 'ALGO=zstd' >> /etc/default/zramswap
+    grep -q '^PERCENT=' /etc/default/zramswap || echo 'PERCENT=50' >> /etc/default/zramswap
+    echo "I: zram: $(grep -E '^(ALGO|PERCENT)=' /etc/default/zramswap | tr '\n' ' ')"
+fi
+# Firewall attivo: blocca le connessioni in entrata non richieste, lascia uscire tutto.
+# (ufw consente già la scoperta di stampanti e servizi in rete, mDNS)
+if [ -f /etc/ufw/ufw.conf ]; then
+    sed -i 's/^ENABLED=.*/ENABLED=yes/' /etc/ufw/ufw.conf
+    sed -i -e 's/^DEFAULT_INPUT_POLICY=.*/DEFAULT_INPUT_POLICY="DROP"/' \
+           -e 's/^DEFAULT_OUTPUT_POLICY=.*/DEFAULT_OUTPUT_POLICY="ACCEPT"/' /etc/default/ufw
+    systemctl enable ufw.service 2>/dev/null || true
+    echo "I: firewall attivo (entrata bloccata, uscita libera)"
+fi
+# Blocco dello schermo: sul sistema installato sì, dalla chiavetta no (l'utente live
+# non ha una password da conoscere: lo schermo bloccato sarebbe un vicolo cieco).
+for f in $(grep -l '^Exec=light-locker' /etc/xdg/autostart/*.desktop 2>/dev/null); do
+    grep -q '^Hidden=true' "$f" || echo 'Hidden=true' >> "$f"
+    cat > /etc/xdg/autostart/gisquare-blocco-schermo.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=GiSquare OS - blocco dello schermo
+Exec=sh -c 'test -d /run/live || exec light-locker'
+OnlyShowIn=XFCE;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+    echo "I: blocco dello schermo solo sul sistema installato"
+done
+update-desktop-database -q /usr/share/applications || true
+chmod 755 /usr/local/bin/gisquare-* /usr/local/lib/gisquare-os/installa-programmi
+# File di avvio (initramfs) rigenerati con le impostazioni GiSquare: tema di caricamento,
+# regola dei dischi in sola lettura (con le chiavette USB escluse), niente floppy.
+if command -v update-initramfs >/dev/null 2>&1; then
+    update-initramfs -u -k all
+fi
+echo "I: GiSquare OS: personalizzazione completata"

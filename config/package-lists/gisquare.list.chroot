@@ -1,0 +1,162 @@
+# GiSquare OS - elenco dei pacchetti (tutti da Debian 13 "trixie", sezione main)
+# Una riga = un pacchetto. Le righe che iniziano con # sono commenti.
+# Lo script costruisci.sh controlla che ogni pacchetto esista prima di avviare la build.
+
+# --- Sistema live e lingua italiana ---
+live-boot
+live-config
+live-config-systemd
+locales
+keyboard-configuration
+console-setup
+sudo
+bash-completion
+nano
+htop
+curl
+wget
+rsync
+zip
+unzip
+7zip
+
+# --- Desktop XFCE ---
+xorg
+xfce4
+xfce4-terminal
+xfce4-whiskermenu-plugin
+xfce4-pulseaudio-plugin
+xfce4-power-manager
+xfce4-notifyd
+xfce4-screenshooter
+xfce4-taskmanager
+xfce4-clipman-plugin
+lightdm
+lightdm-gtk-greeter
+thunar
+thunar-archive-plugin
+thunar-volman
+gvfs
+gvfs-backends
+xarchiver
+mousepad
+ristretto
+atril
+mate-polkit
+pkexec
+zenity
+xdg-user-dirs
+xdg-user-dirs-gtk
+network-manager
+network-manager-applet
+network-manager-gnome
+pipewire-audio
+pavucontrol
+adwaita-icon-theme
+elementary-xfce-icon-theme
+papirus-icon-theme
+greybird-gtk-theme
+
+# --- Caratteri (compatibili con i documenti di Office) ---
+fonts-open-sans
+fonts-dejavu
+fonts-liberation
+fonts-crosextra-carlito
+fonts-crosextra-caladea
+fonts-noto-core
+fonts-inter
+
+# --- Audio, video, Bluetooth, accessibilità ---
+vlc
+blueman
+onboard
+
+# --- Strumenti per la classe ---
+xournalpp
+galculator
+python3-gi
+gir1.2-gtk-3.0
+
+# --- Internet (Chromium è il browser predefinito, Firefox resta disponibile) ---
+chromium
+chromium-l10n
+firefox-esr
+firefox-esr-l10n-it
+# uBlock Origin per Firefox (per Chromium c'è uBlock Origin Lite, vedi le policy)
+webext-ublock-origin-firefox
+
+# --- Stampanti e scanner (anche di rete e multifunzione, quasi sempre senza driver) ---
+cups
+cups-client
+cups-filters
+cups-browsed
+ipp-usb
+avahi-daemon
+libnss-mdns
+system-config-printer
+printer-driver-gutenprint
+printer-driver-hpcups
+hplip
+printer-driver-brlaser
+printer-driver-splix
+printer-driver-foo2zjs
+printer-driver-escpr
+foomatic-db-compressed-ppds
+simple-scan
+sane-utils
+sane-airscan
+
+# --- Didattica: dal simulatore ai circuiti reali ---
+arduino
+fritzing
+fritzing-parts
+thonny
+
+# --- Schermata di caricamento ---
+plymouth
+plymouth-themes
+
+# --- Ufficio leggero (LibreOffice si installa con un clic dal menu) ---
+abiword
+gnumeric
+hunspell-it
+
+# --- Recupero dati e dischi ---
+testdisk
+gddrescue
+gparted
+gnome-disk-utility
+smartmontools
+gsmartcontrol
+ntfs-3g
+exfatprogs
+dosfstools
+dislocker
+cryptsetup
+lvm2
+btrfs-progs
+xfsprogs
+# hfsprogs: non esiste più in Debian 13 (i dischi Mac HFS+ si leggono comunque col kernel)
+partclone
+grsync
+
+# --- Programmi: negozio con Flathub, .deb con doppio clic ---
+gnome-software
+gnome-software-plugin-flatpak
+flatpak
+gdebi
+
+# --- Prestazioni e sicurezza ---
+zram-tools
+ufw
+gufw
+tlp
+
+# --- Aggiornamenti automatici (sistema installato) ---
+package-update-indicator
+unattended-upgrades
+apt-listchanges
+
+# --- Installer sul disco ---
+calamares
+calamares-settings-debian

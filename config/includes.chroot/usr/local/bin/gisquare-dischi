@@ -1,0 +1,110 @@
+#!/bin/bash
+# GiSquare OS - protezione dei dischi (sola lettura / scrittura)
+#
+#   gisquare-dischi              finestra grafica
+#   gisquare-dischi stato        elenco dischi e stato di protezione
+#   gisquare-dischi sblocca      permette la scrittura su tutti i dischi   (root)
+#   gisquare-dischi blocca       rimette in sola lettura i dischi interni  (root)
+#   gisquare-dischi proteggi /dev/sdX   sola lettura su un disco qualsiasi (root)
+set -u
+
+FLAG=/run/gisquare-scrittura-dischi
+TITOLO="Protezione dischi"
+SELF=$(readlink -f "$0")
+
+come_root() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    elif sudo -n true 2>/dev/null; then
+        sudo "$@"
+    else
+        pkexec "$@"
+    fi
+}
+
+dischi_e_partizioni() {
+    # stampa i dispositivi (disco + partizioni) escludendo loop, cd e simili
+    lsblk -lnpo NAME,TYPE "${1:-}" 2>/dev/null | awk '$2=="disk" || $2=="part" {print $1}' \
+        | grep -Ev '/dev/(loop|sr|ram|zram)'
+}
+
+stato() {
+    printf '%-14s %-8s %-6s %-10s %s\n' DISPOSITIVO TIPO BUS STATO MODELLO
+    lsblk -dnpo NAME,TYPE,TRAN,RO,SIZE,MODEL | grep -Ev '/dev/(loop|sr|ram|zram)' \
+        | while read -r nome tipo bus ro dim modello; do
+            [ "$ro" = "1" ] && s="PROTETTO" || s="scrivibile"
+            printf '%-14s %-8s %-6s %-10s %s %s\n' "$nome" "$tipo" "${bus:--}" "$s" "$dim" "${modello:-}"
+        done
+}
+
+sblocca() {
+    touch "$FLAG"
+    for d in $(dischi_e_partizioni); do
+        blockdev --setrw "$d" 2>/dev/null || true
+    done
+}
+
+blocca() {
+    rm -f "$FLAG"
+    udevadm trigger --action=change --subsystem-match=block
+    udevadm settle
+}
+
+proteggi() {
+    local dev="$1"
+    [ -b "$dev" ] || { echo "Dispositivo non valido: $dev" >&2; exit 1; }
+    for d in $(dischi_e_partizioni "$dev"); do
+        blockdev --setro "$d"
+    done
+}
+
+gui() {
+    local scelta
+    scelta=$(zenity --list --radiolist --title="$TITOLO" --width=560 --height=330 \
+        --text="In modalità live i dischi interni del computer sono in <b>sola lettura</b>:\nniente può modificarli per sbaglio. I dischi USB restano scrivibili." \
+        --column="" --column="Azione" --column="id" --hide-column=3 \
+        TRUE  "Mostra lo stato dei dischi" stato \
+        FALSE "Sblocca la scrittura su tutti i dischi" sblocca \
+        FALSE "Proteggi di nuovo i dischi interni" blocca \
+        FALSE "Metti in sola lettura un disco USB (es. un disco da recuperare)" proteggi \
+        --print-column=3) || exit 0
+
+    case "$scelta" in
+        stato)
+            stato | zenity --text-info --title="$TITOLO" --width=720 --height=360 --font="monospace 10"
+            ;;
+        sblocca)
+            zenity --question --title="$TITOLO" --width=420 \
+                --text="Sbloccando i dischi, i programmi potranno <b>modificarli</b>.\nFallo solo se devi davvero scriverci.\n\nContinuare?" || exit 0
+            come_root "$SELF" sblocca && zenity --info --title="$TITOLO" --width=420 \
+                --text="Scrittura sbloccata.\nSe un disco era già aperto, chiudilo (Espelli) e riaprilo."
+            ;;
+        blocca)
+            come_root "$SELF" blocca && zenity --info --title="$TITOLO" --width=420 \
+                --text="Dischi interni di nuovo protetti.\nSe un disco era già aperto, chiudilo (Espelli) e riaprilo."
+            ;;
+        proteggi)
+            local righe=() nome tran dim modello
+            while read -r nome tran dim modello; do
+                righe+=(FALSE "$nome" "${tran:--}" "$dim" "${modello:-}")
+            done < <(lsblk -dnpo NAME,TRAN,SIZE,MODEL | grep -Ev '/dev/(loop|sr|ram|zram)')
+            local dev
+            dev=$(zenity --list --radiolist --title="$TITOLO" --width=640 --height=360 \
+                --text="Scegli il disco da mettere in sola lettura.\n<b>Non scegliere la chiavetta di GiSquare OS.</b>" \
+                --column="" --column="Disco" --column="Bus" --column="Dimensione" --column="Modello" \
+                "${righe[@]}") || exit 0
+            [ -n "$dev" ] || exit 0
+            come_root "$SELF" proteggi "$dev" && zenity --info --title="$TITOLO" --width=420 \
+                --text="$dev ora è in sola lettura (fino al riavvio o allo scollegamento)."
+            ;;
+    esac
+}
+
+case "${1:-gui}" in
+    stato)    stato ;;
+    sblocca)  sblocca ;;
+    blocca)   blocca ;;
+    proteggi) proteggi "${2:?specifica il disco, es. /dev/sdb}" ;;
+    gui)      gui ;;
+    *)        sed -n '2,9p' "$0"; exit 1 ;;
+esac

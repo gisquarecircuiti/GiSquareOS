@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Salvataggio sulla chiavetta
+Comment=Controlla se i tuoi file vengono salvati e come non perderli
+Exec=gisquare-salvataggio
+Icon=gisquare-salvataggio
+Terminal=false
+Categories=System;Utility;
+Keywords=salvataggio;persistenza;chiavetta;usb;backup;spazio;

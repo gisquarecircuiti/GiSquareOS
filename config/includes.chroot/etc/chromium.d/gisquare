@@ -1,0 +1,4 @@
+# GiSquare OS - Chromium salva le password senza il "portachiavi" di sistema:
+# niente richiesta "Choose password for new keyring" al primo avvio
+# (l'utente della chiavetta non ha una password).
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic"

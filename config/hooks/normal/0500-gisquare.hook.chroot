@@ -1,0 +1,5 @@
+#!/bin/sh
+# GiSquare OS - durante la costruzione della ISO applica le personalizzazioni
+# (lo script fa parte del pacchetto gisquare-os, installato insieme agli altri).
+set -e
+/usr/lib/gisquare-os/configura

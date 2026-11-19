@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guida di GiSquare OS</title>
+<style>
+  :root { --notte:#121f35; --notte2:#172b46; --notte3:#223a5a; --azzurro:#6dc8ff; --azzurro-chiaro:#b7e7ff;
+          --inchiostro:#17253a; --tenue:#64738a; --carta:#f5f8fc; --linea:#dce5ee; --verde:#35d0a5; --ambra:#ffb84a; }
+  body { margin:0; font-family:Inter,"Open Sans",sans-serif; color:var(--inchiostro); background:var(--carta); line-height:1.65; font-size:16px; }
+  header { background:radial-gradient(ellipse at 80% 40%,rgba(109,200,255,.18),transparent 45%),
+                      linear-gradient(128deg,var(--notte) 0%,var(--notte2) 55%,var(--notte3) 100%);
+           color:#fff; padding:34px 28px; display:flex; gap:20px; align-items:center; }
+  header img { width:76px; height:76px; }
+  header .occhiello { color:#c5d1e3; font-size:12px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; }
+  header h1 { margin:2px 0 0; font-family:"Noto Serif",Georgia,serif; font-weight:400; font-size:40px; letter-spacing:-.03em; }
+  header h1 em { color:var(--azzurro); }
+  header p { margin:4px 0 0; color:#c5d1e2; }
+  main { max-width:880px; margin:0 auto; padding:8px 26px 48px; }
+  h2 { font-family:"Noto Serif",Georgia,serif; font-weight:400; font-size:30px; color:var(--inchiostro);
+       border-bottom:1px solid var(--linea); padding-bottom:6px; margin-top:44px; }
+  h2 em { color:#2f6fa3; }
+  h3 { margin:26px 0 6px; font-size:18px; }
+  .nota { background:#fff7e8; border-left:4px solid var(--ambra); padding:12px 16px; border-radius:6px; }
+  .ok { background:#e9faf4; border-left:4px solid var(--verde); padding:12px 16px; border-radius:6px; }
+  .passi { counter-reset:passo; list-style:none; padding-left:0; }
+  .passi li { counter-increment:passo; position:relative; padding:10px 0 10px 48px; border-bottom:1px solid var(--linea); }
+  .passi li::before { content:counter(passo); position:absolute; left:0; top:10px; width:32px; height:32px; border-radius:50%;
+                      background:var(--notte); color:#fff; font-family:"Noto Serif",serif; display:flex; align-items:center; justify-content:center; }
+  code { background:#e6edf6; padding:1px 6px; border-radius:4px; }
+  nav { margin-top:12px; } nav a { display:inline-block; margin:8px 14px 0 0; color:#2f6fa3; font-weight:600; text-decoration:none; }
+  nav a:hover { text-decoration:underline; }
+  table { border-collapse:collapse; width:100%; margin:10px 0; } td, th { border-bottom:1px solid var(--linea); padding:8px; text-align:left; vertical-align:top; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<header>
+  <img src="logo.svg" alt="">
+  <div><div class="occhiello">● Guida</div><h1>GiSquare <em>OS</em></h1><p>Leggero, portatile, con GiSquare Circuiti integrato.</p></div>
+</header>
+<main>
+<nav>
+  <a href="#inizio">Primi passi</a>
+  <a href="#chiavetta">Salvare i file sulla chiavetta</a>
+  <a href="#recupero">Recupero dati</a>
+  <a href="#programmi">Programmi</a>
+  <a href="#installare">Installare sul computer</a>
+</nav>
+
+<h2 id="inizio">Primi passi</h2>
+<p>GiSquare OS funziona direttamente dalla chiavetta USB, senza toccare il computer su cui la usi.</p>
+<ul>
+  <li><b>Accendere dalla chiavetta:</b> inserisci la chiavetta, accendi il PC e premi subito il tasto del menu di avvio
+      (di solito <code>F12</code>, <code>F11</code>, <code>F8</code> o <code>Esc</code>), poi scegli la chiavetta.</li>
+  <li><b>Salvare i file:</b> se la chiavetta è stata preparata con lo spazio di salvataggio (persistenza), i file
+      della cartella personale, le impostazioni e i programmi installati restano anche dopo lo spegnimento.
+      Senza persistenza tutto si azzera a ogni riavvio: salva il lavoro su un'altra chiavetta.</li>
+  <li><b>Password:</b> nella modalità chiavetta l'utente è <code>gisquare</code> e non serve password per i comandi di amministrazione.
+      Se un programma la chiedesse comunque, è <code>live</code>.</li>
+</ul>
+
+<h2 id="chiavetta">Salvare i file <em>sulla chiavetta</em></h2>
+<p>GiSquare OS dalla chiavetta può funzionare in due modi:</p>
+<table>
+  <tr><th>Chiavetta senza salvataggio</th><th>Chiavetta con salvataggio (persistenza)</th></tr>
+  <tr><td>A ogni accensione riparte da zero: file, impostazioni e programmi installati si perdono allo spegnimento.
+          Comoda per il recupero dati o per usare un PC di altri senza lasciare tracce.</td>
+      <td>Una parte della chiavetta conserva <b>cartella personale, impostazioni, reti Wi-Fi, stampanti e programmi installati</b>.
+          È il modo giusto per usarla tutti i giorni, a scuola e a casa.</td></tr>
+</table>
+<p>Per sapere in che modo stai usando la chiavetta apri <b>Salvataggio sulla chiavetta</b> dal menu (o dal Benvenuto):
+mostra se il salvataggio è attivo e quanto spazio resta.</p>
+
+<h3>Preparare la chiavetta con il salvataggio (da Windows, con Rufus)</h3>
+<ol class="passi">
+  <li>Usa una chiavetta <b>USB 3 da almeno 16 GB</b> (verrà cancellata). Scarica <b>Rufus</b> da <code>rufus.ie</code>.</li>
+  <li>In Rufus scegli la chiavetta in <b>Dispositivo</b> e la ISO di GiSquare OS con <b>SELEZIONA</b>.</li>
+  <li>Sposta il cursore <b>Dimensione partizione persistente</b>: è lo spazio per i tuoi file. Lascia libero circa
+      3 GB per il sistema e usa il resto (per esempio <b>12 GB</b> su una chiavetta da 16 GB).</li>
+  <li>Premi <b>AVVIA</b>. Se Rufus chiede di scaricare file aggiuntivi rispondi <b>Sì</b>; se chiede la modalità scegli
+      <b>Scrivi in modalità immagine ISO (consigliata)</b>.</li>
+  <li>Avvia il PC dalla chiavetta: nella finestra di Benvenuto deve comparire la riga verde
+      <b>«I tuoi file vengono salvati sulla chiavetta»</b>.</li>
+</ol>
+<p class="nota">Rufus con il cursore del salvataggio è il metodo provato. Programmi come balenaEtcher o Ventoy creano
+una chiavetta che funziona, ma <b>senza salvataggio</b>.</p>
+
+<h3>Le regole d'oro</h3>
+<ul>
+  <li><b>Spegni sempre dal menu</b> (Esci → Spegni) e togli la chiavetta solo a computer spento. Se la strappi mentre è accesa,
+      i file aperti in quel momento possono rovinarsi.</li>
+  <li><b>Fai una copia ogni settimana</b> della cartella personale su un'altra chiavetta, sul computer di casa o in cloud.
+      Le chiavette si perdono e prima o poi si guastano.</li>
+  <li><b>Non riempire lo spazio di salvataggio</b>: tieni libero almeno il 10%. Quando sta per finire te lo segnala il Benvenuto.</li>
+  <li><b>Una chiavetta, un computer alla volta</b>: non serve altro, puoi usarla su PC diversi, uno dopo l'altro.</li>
+</ul>
+
+<h3 id="aggiornare">Aggiornare GiSquare OS senza perdere i file</h3>
+<p>Il sistema della chiavetta si aggiorna rifacendola con la ISO più recente. Rifarla <b>cancella anche lo spazio di salvataggio</b>, quindi:</p>
+<ol class="passi">
+  <li>Copia la tua cartella personale su un'altra chiavetta o sul computer (in <b>File</b>, mostra anche i file nascosti
+      con <code>Ctrl+H</code> se vuoi portare con te anche le impostazioni).</li>
+  <li>Rifai la chiavetta con Rufus e la nuova ISO, sempre con il cursore del salvataggio.</li>
+  <li>Avvia GiSquare OS e ricopia i tuoi file nella cartella personale.</li>
+</ol>
+<p>GiSquare Circuiti si aggiorna da solo e i programmi installati con <b>Programmi</b> o <b>Installa altri programmi</b>
+restano finché c'è il salvataggio.</p>
+
+<h3>Se la chiavetta non parte più</h3>
+<ul>
+  <li>Prova la voce <b>Avvia GiSquare OS (avvio sicuro)</b> nel menu di avvio.</li>
+  <li>I tuoi file sono nello spazio di salvataggio, una parte della chiavetta chiamata <code>persistence</code>.
+      Da un'altra chiavetta GiSquare OS (o da un qualsiasi Linux) inserisci la chiavetta guasta, apri <b>File</b>,
+      fai clic su <b>persistence</b>: i file sono nella cartella <code>rw/home/gisquare</code>. Copiali altrove.</li>
+  <li>Windows non legge questa parte della chiavetta: usa GiSquare OS per recuperare i file.</li>
+</ul>
+
+<h3>Sicurezza e privacy</h3>
+<ul>
+  <li>Lo spazio di salvataggio <b>non è protetto da password</b>: chi trova la chiavetta può leggere i file. Non tenerci
+      documenti riservati (dati personali, voti, documenti d'identità) oppure tienine una copia solo sul computer.</li>
+  <li>La chiavetta non lascia nulla sul computer che usi: i dischi interni sono addirittura protetti in sola lettura.</li>
+  <li>Il firewall è sempre attivo e il browser blocca pubblicità e tracciatori (puoi disattivarlo per un sito dall'icona dello scudo).</li>
+</ul>
+
+<h2 id="recupero">Recupero dati</h2>
+<div class="ok">Mentre usi la chiavetta, <b>i dischi interni del computer sono in sola lettura</b>: puoi esplorarli e copiare i file
+senza rischiare di modificarli. I dischi USB restano scrivibili, così puoi usarli per salvare quello che recuperi.</div>
+
+<h3>Il computer si accende, ma Windows non parte</h3>
+<ol>
+  <li>Avvia il computer dalla chiavetta GiSquare OS.</li>
+  <li>Collega una seconda chiavetta o un disco USB dove salvare i file.</li>
+  <li>Apri <b>Recupero dati → Esplora i dischi</b>: nella colonna di sinistra trovi il disco del computer.
+      I documenti di Windows sono di solito in <code>Users\NomeUtente\Documents</code>, <code>Desktop</code>, <code>Pictures</code>.</li>
+  <li>Copia le cartelle sul disco USB.</li>
+</ol>
+<p class="nota">Se il disco di Windows è protetto con <b>BitLocker</b>, ti servirà la chiave di ripristino di 48 cifre
+(spesso si trova nell'account Microsoft del proprietario).</p>
+
+<h3>Il computer non si accende proprio</h3>
+<p>Nessun sistema operativo può aiutare se il guasto è dell'alimentatore o della scheda madre. Si fa così:</p>
+<ol>
+  <li>Smonta il disco dal computer guasto.</li>
+  <li>Collegalo a un altro PC con un <b>adattatore USB-SATA</b> (o un box esterno; per i dischi NVMe serve un box NVMe).</li>
+  <li>Avvia l'altro PC con GiSquare OS e procedi come sopra.</li>
+</ol>
+<p class="nota">Un disco collegato via USB <b>non</b> è protetto automaticamente. Per sicurezza apri
+<b>Recupero dati → Protezione dischi → Metti in sola lettura un disco USB</b> prima di esplorarlo.</p>
+
+<h3>File cancellati o disco formattato</h3>
+<p>Usa <b>PhotoRec</b> (Recupero dati → PhotoRec): cerca foto, documenti, video e molti altri tipi di file anche
+dopo una formattazione. Salva sempre i file recuperati su un <b>disco diverso</b> da quello che stai analizzando.</p>
+
+<h3>Il disco fa rumori strani o è lentissimo</h3>
+<ol>
+  <li>Controlla <b>Salute dei dischi</b>: se compaiono settori riallocati o in attesa, il disco si sta guastando.</li>
+  <li>Non insistere a copiare file uno per uno: usa <b>Copia disco</b> (ddrescue), che copia prima le zone sane
+      e poi riprova quelle difettose, salvando un'immagine del disco su un disco USB capiente.</li>
+  <li>Lavora poi sull'immagine, non sul disco originale.</li>
+</ol>
+
+<h2 id="programmi">Programmi inclusi</h2>
+<ul>
+  <li><b>GiSquare Circuiti</b> – simulatore di circuiti elettrici, elettronici e PLC.</li>
+  <li><b>Arduino IDE</b>, <b>Fritzing</b> e <b>Thonny</b> – per passare dal simulatore ai circuiti reali: programmare le schede (Arduino, ESP32, Raspberry Pi Pico), disegnare i montaggi su breadboard, programmare in Python e MicroPython.</li>
+  <li><b>Chromium</b> (predefinito, con il blocco della pubblicità uBlock Origin Lite: si installa da solo al primo avvio con Internet ed è disattivabile dalla sua icona) e <b>Firefox</b> (con uBlock Origin) – navigazione in Internet.</li>
+  <li><b>AbiWord</b> e <b>Gnumeric</b> – testi e fogli di calcolo, leggerissimi.</li>
+  <li><b>Lavagna</b> (Xournal++) – per la LIM: scrivere a mano, annotare PDF e schede, salvare la lezione.</li>
+  <li><b>VLC</b> per audio e video, <b>Calcolatrice</b>, <b>Bluetooth</b>, <b>Tastiera su schermo</b> (anche nella schermata di accesso).</li>
+  <li><b>Stampanti</b> e <b>Scansione documenti</b> – la maggior parte delle stampanti e delle multifunzione di rete e USB funziona senza installare driver.</li>
+  <li><b>Programmi</b> (il negozio) – cerca e installa altri programmi da Debian e da <b>Flathub</b> (per esempio GeoGebra). I file <code>.deb</code> scaricati dai siti si installano con un doppio clic.</li>
+  <li><b>Installa altri programmi</b> (menu Sistema, o dalla finestra di Benvenuto) – LibreOffice, GIMP, Inkscape, Audacity e Shotcut con un clic; LibreOffice serve se ti occorre la piena compatibilità con Word, Excel e PowerPoint
+      o devi fare presentazioni. Serve Internet.</li>
+  <li><b>Atril</b> per i PDF, <b>Ristretto</b> per le immagini, <b>Mousepad</b> per i file di testo.</li>
+</ul>
+
+<h2 id="installare">Installare GiSquare OS sul computer</h2>
+<p>Fai doppio clic su <b>Installa GiSquare OS</b> sul desktop e segui i passaggi.
+Puoi installarlo accanto al sistema esistente oppure usare tutto il disco.</p>
+<p class="nota">Se scegli di usare tutto il disco, <b>i file presenti verranno cancellati</b>: recuperali prima.</p>
+<p>Il sistema installato scarica e installa da solo gli aggiornamenti di sicurezza di Debian; quando ci sono altri aggiornamenti compare un'icona nel pannello in alto. Dalla chiavetta, invece, il sistema si aggiorna rifacendola con la ISO più recente. Per aggiornare subito tutto apri il Terminale e scrivi <code>sudo apt update &amp;&amp; sudo apt full-upgrade</code>. GiSquare Circuiti segnala da solo le sue nuove versioni.</p>
+
+<p style="margin-top:40px;color:#6b778a;font-size:14px">GiSquare OS è basato su Debian GNU/Linux. Debian è un marchio registrato
+di Software in the Public Interest, Inc.; GiSquare OS non è un progetto ufficiale Debian.</p>
+</main>
+</body>
+</html>

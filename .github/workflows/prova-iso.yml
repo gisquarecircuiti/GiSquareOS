@@ -1,0 +1,119 @@
+# GiSquare OS - prova automatica della ISO in una macchina virtuale (QEMU) su GitHub.
+# Actions > "Prova la ISO" > Run workflow. Le schermate (menu di avvio, caricamento,
+# desktop, GiSquare Circuiti) si vedono nel ramo "schermate" del repository
+# (e si scaricano anche dagli "Artifacts" della prova).
+name: Prova la ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Release da provare (es. v1.0-build6). Vuoto = la più recente"
+        required: false
+        default: ""
+
+jobs:
+  prova:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        modo: [bios, uefi]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Attiva KVM e installa QEMU
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends qemu-system-x86 ovmf
+          ls -l /dev/kvm
+
+      - name: Scarica la ISO dalla release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.release }}
+        run: |
+          mkdir iso
+          # le release di prova sono "pre-release": la più recente si prende dall'elenco
+          [ -n "$RELEASE" ] || RELEASE=$(gh api "repos/${{ github.repository }}/releases" --jq 'sort_by(.created_at) | last | .tag_name')
+          echo "Provo la release: $RELEASE"
+          gh release download "$RELEASE" --repo "${{ github.repository }}" --pattern '*.iso*' --dir iso
+          cd iso
+          if ls *.parte* >/dev/null 2>&1; then
+            iso=$(ls *.parte00 | sed 's/\.parte00$//'); cat "$iso".parte* > "$iso"; rm "$iso".parte*
+          fi
+          sha256sum -c *.iso.sha256
+          ls -lh
+
+      - name: Trova il programma GiSquare Circuiti dentro la ISO
+        id: circuiti
+        run: |
+          sudo apt-get install -y -q --no-install-recommends squashfs-tools xorriso
+          xorriso -osirrox on -indev iso/*.iso -extract /live/filesystem.squashfs fs.squashfs 2>/dev/null
+          unsquashfs -l fs.squashfs 'usr/share/applications/*' | grep -i circuiti || true
+          id=$(unsquashfs -l fs.squashfs 'usr/share/applications/*' | grep -io 'gisquare-circuiti[^/]*\.desktop' | head -1 | sed 's/\.desktop$//')
+          echo "Desktop file: ${id:-NON TROVATO}"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          rm -f fs.squashfs
+
+      - name: Prepara la chiavetta con il salvataggio (solo nella prova BIOS)
+        if: matrix.modo == 'bios'
+        run: |
+          mkdir conf && echo "/ union" > conf/persistence.conf
+          truncate -s 2G persistenza.img
+          mkfs.ext4 -q -F -L persistence -d conf persistenza.img
+          echo "PERSISTENZA=$PWD/persistenza.img" >> "$GITHUB_ENV"
+
+      - name: Avvia la ISO e fotografa lo schermo (${{ matrix.modo }})
+        run: python3 .github/scripts/prova-iso.py iso/*.iso ${{ matrix.modo }} schermate "${{ steps.circuiti.outputs.id }}"
+
+      - name: Controlla che il salvataggio funzioni (solo nella prova BIOS)
+        if: matrix.modo == 'bios'
+        run: |
+          # dopo l'avvio con persistenza, la partizione deve contenere la cartella rw
+          # con i file del sistema (es. la cartella personale dell'utente)
+          sudo mkdir -p /mnt/p && sudo mount -o ro persistenza.img /mnt/p
+          sudo ls -la /mnt/p /mnt/p/rw 2>&1 | head -30
+          test -d /mnt/p/rw/home/gisquare && echo "SALVATAGGIO OK: /rw/home/gisquare esiste"
+          sudo umount /mnt/p
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: schermate-${{ matrix.modo }}
+          path: schermate/*.png
+          retention-days: 7
+
+  pubblica:
+    # Mette le schermate nel ramo "schermate": si guardano direttamente su GitHub
+    needs: prova
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: schermate-*
+          path: scaricate
+      - name: Pubblica nel ramo "schermate"
+        env:
+          RELEASE: ${{ inputs.release }}
+        run: |
+          mkdir pub && cd pub && git init -q -b schermate
+          find ../scaricate -name '*.png' -exec cp {} . \;
+          {
+            echo "# Schermate della prova: ${RELEASE:-ultima release}"
+            echo
+            echo "Prova eseguita il $(date -u '+%d/%m/%Y %H:%M') UTC - [dettagli](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            for f in $(ls *.png | sort); do echo; echo "### $f"; echo "![$f]($f)"; done
+          } > README.md
+          git add . && git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -qm "Schermate della prova ${RELEASE}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" schermate

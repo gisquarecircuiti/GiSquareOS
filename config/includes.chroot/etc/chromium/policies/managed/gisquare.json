@@ -1,0 +1,31 @@
+{
+  "MetricsReportingEnabled": false,
+  "DefaultBrowserSettingEnabled": false,
+  "PromotionalTabsEnabled": false,
+  "ApplicationLocaleValue": "it",
+  "SpellcheckLanguage": [
+    "it"
+  ],
+  "ShowHomeButton": true,
+  "HomepageLocation": "file:///usr/share/gisquare-os/guida.html",
+  "BookmarkBarEnabled": true,
+  "ManagedBookmarks": [
+    {
+      "toplevel_name": "GiSquare"
+    },
+    {
+      "name": "GiSquare Circuiti",
+      "url": "https://gisquarecircuiti.github.io/GiSquareCircuiti/"
+    },
+    {
+      "name": "Guida di GiSquare OS",
+      "url": "file:///usr/share/gisquare-os/guida.html"
+    }
+  ],
+  "ExtensionSettings": {
+    "ddkjiahejlhfcafbddmgiahcphecmpfh": {
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx"
+    }
+  }
+}

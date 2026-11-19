@@ -1,0 +1,14 @@
+Package: gisquare-os
+Version: @VERSIONE@
+Architecture: all
+Maintainer: GiSquare <gisquare.circuiti@gmail.com>
+Section: misc
+Priority: optional
+Depends: python3, python3-gi, gir1.2-gtk-3.0
+Homepage: @SITO@
+Description: GiSquare OS - grafica, programmi e impostazioni
+ Le parti di GiSquare OS che si aggiungono a Debian: grafica (menu di avvio,
+ schermata di caricamento, sfondi, icone), Benvenuto, Installa altri programmi,
+ Salvataggio sulla chiavetta, Recupero dati, protezione dei dischi, guida e
+ impostazioni del desktop. Aggiornando questo pacchetto i computer con
+ GiSquare OS installato ricevono le novità delle nuove versioni.

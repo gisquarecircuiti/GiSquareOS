@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Guida di GiSquare OS
+Comment=Come usare GiSquare OS e recuperare i file
+Exec=xdg-open file:///usr/share/gisquare-os/guida.html
+Icon=gisquare-guida
+Terminal=false
+Categories=Documentation;

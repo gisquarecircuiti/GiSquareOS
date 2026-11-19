@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Recupero dati
+Comment=Recupera i file da dischi e computer che non si avviano più
+Exec=gisquare-recupero
+Icon=gisquare-recupero
+Terminal=false
+Categories=System;Utility;
+Keywords=recupero;file;disco;photorec;testdisk;ddrescue;

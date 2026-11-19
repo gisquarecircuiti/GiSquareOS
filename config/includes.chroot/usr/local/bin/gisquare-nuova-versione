@@ -1,0 +1,116 @@
+#!/usr/bin/python3
+"""GiSquare OS - avvisa quando è uscita una nuova versione di GiSquare OS.
+
+Controlla l'ultima versione pubblicata sul repository GitHub di GiSquare OS e, se è
+più recente, mostra una finestra una sola volta per versione:
+- dalla chiavetta: per ogni nuova versione (la chiavetta si aggiorna rifacendola);
+- sul sistema installato: solo per le versioni principali (2.0, 3.0...), perché le
+  altre novità arrivano da sole con gli aggiornamenti.
+Se non c'è Internet o il repository non è raggiungibile non fa nulla.
+"""
+import json
+import os
+import re
+import sys
+import urllib.request
+
+sys.path.insert(0, "/usr/local/lib/gisquare-os")
+
+VISTA = os.path.expanduser("~/.config/gisquare-os/versione-avvisata")
+
+
+def leggi_release():
+    valori = {}
+    try:
+        with open("/etc/gisquare-os-release") as f:
+            for riga in f:
+                if "=" in riga:
+                    k, v = riga.strip().split("=", 1)
+                    valori[k] = v.strip('"')
+    except OSError:
+        pass
+    return valori
+
+
+def numeri(versione):
+    return tuple(int(n) for n in re.findall(r"\d+", versione)[:3]) or (0,)
+
+
+def ultima_versione(repo):
+    req = urllib.request.Request(f"https://api.github.com/repos/{repo}/releases/latest",
+                                 headers={"Accept": "application/vnd.github+json",
+                                          "User-Agent": "gisquare-os"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        dati = json.load(r)
+    return dati.get("tag_name", "").lstrip("vV"), dati.get("html_url", "")
+
+
+def main():
+    rel = leggi_release()
+    attuale, repo = rel.get("GISQUARE_VERSIONE", "0"), rel.get("GISQUARE_REPO_OS", "")
+    if not repo:
+        return
+    try:
+        nuova, pagina = ultima_versione(repo)
+    except Exception:
+        return  # niente Internet, repository privato o GitHub non raggiungibile: si riprova al prossimo avvio
+    if not nuova or numeri(nuova) <= numeri(attuale):
+        return
+    chiavetta = os.path.isdir("/run/live")
+    if not chiavetta and numeri(nuova)[0] <= numeri(attuale)[0]:
+        return
+    try:
+        if open(VISTA).read().strip() == nuova:
+            return
+    except OSError:
+        pass
+
+    import gisquare_ui as ui
+    from gisquare_ui import Gtk
+    win = ui.finestra("Nuova versione di GiSquare OS", 640, 380)
+    radice = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    win.add(radice)
+    corpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+    corpo.set_border_width(28)
+    corpo.pack_start(ui.intestazione("Nuova versione disponibile"), False, False, 0)
+    box = ui.classe(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6), "ok")
+    box.pack_start(ui.etichetta(f"<b>È uscito GiSquare OS {nuova}</b> (tu stai usando la {attuale}).",
+                                markup=True), False, False, 0)
+    if chiavetta:
+        testo = ("La chiavetta si aggiorna rifacendola con la nuova ISO. Prima copia altrove i tuoi file: "
+                 "rifarla cancella anche lo spazio di salvataggio. Tutti i passaggi sono nella guida.")
+    else:
+        testo = ("È una nuova versione principale: per passarci segui la guida dalla pagina della versione. "
+                 "Gli aggiornamenti normali continuano ad arrivare da soli.")
+    box.pack_start(ui.etichetta(testo, avvolgi=True), False, False, 0)
+    corpo.pack_start(box, False, False, 0)
+    radice.pack_start(corpo, True, True, 0)
+
+    barra = ui.classe(Gtk.Box(spacing=12), "barra")
+
+    def ricorda(*_):
+        os.makedirs(os.path.dirname(VISTA), exist_ok=True)
+        with open(VISTA, "w") as f:
+            f.write(nuova)
+        win.destroy()
+
+    dopo = ui.classe(Gtk.Button(label="Non ricordarmelo più"), "secondario")
+    dopo.connect("clicked", ricorda)
+    barra.pack_start(dopo, False, False, 0)
+    chiudi = ui.classe(Gtk.Button(label="Più tardi"), "secondario")
+    chiudi.connect("clicked", lambda *_: win.destroy())
+    if chiavetta:
+        guida = ui.classe(Gtk.Button(label="Come aggiornare"), "primario")
+        guida.connect("clicked", lambda *_: ui.apri("file:///usr/share/gisquare-os/guida.html#aggiornare"))
+    else:
+        guida = ui.classe(Gtk.Button(label="Apri la pagina"), "primario")
+        guida.connect("clicked", lambda *_: ui.apri(pagina or f"https://github.com/{repo}/releases"))
+    barra.pack_end(guida, False, False, 0)
+    barra.pack_end(chiudi, False, False, 0)
+    radice.pack_end(barra, False, False, 0)
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

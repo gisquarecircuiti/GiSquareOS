@@ -1,0 +1,5 @@
+output/
+pacchetti/*.deb
+grafica/sorgenti/
+__pycache__/
+*.pyc

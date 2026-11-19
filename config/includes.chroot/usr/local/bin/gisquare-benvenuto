@@ -1,0 +1,122 @@
+#!/usr/bin/python3
+"""GiSquare OS - finestra di Benvenuto.
+
+Con --avvio (all'accesso) si apre solo se l'utente non ha spuntato "Non mostrare più".
+Dal menu si apre sempre.
+"""
+import os
+import sys
+
+sys.path.insert(0, "/usr/local/lib/gisquare-os")
+import gisquare_ui as ui  # noqa: E402
+from gisquare_ui import Gtk  # noqa: E402
+
+NASCOSTO = os.path.expanduser("~/.config/gisquare-os/benvenuto-nascosto")
+
+# nome, descrizione, icona di riserva, desktop id (il primo che esiste)
+SCHEDE = [
+    ("GiSquare Circuiti", "Simula un circuito", None, ["gisquare-circuiti*"]),
+    ("Arduino IDE", "Programma una scheda", "arduino", ["arduino.desktop"]),
+    ("Lavagna", "Scrivi e annota sulla LIM", "xournalpp",
+     ["com.github.xournalpp.xournalpp.desktop", "xournalpp.desktop"]),
+    ("Stampanti", "Aggiungi una stampante", "printer", ["system-config-printer.desktop"]),
+    ("Altri programmi", "GIMP, LibreOffice, Inkscape...", "gisquare-programmi", ["gisquare-programmi.desktop"]),
+    ("Guida", "Come usare GiSquare OS", "gisquare-guida", ["gisquare-guida.desktop"]),
+]
+
+
+class Benvenuto:
+    def __init__(self):
+        self.win = ui.finestra("Benvenuto in GiSquare OS", 820, 600)
+        radice = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.win.add(radice)
+
+        corpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
+        corpo.set_border_width(30)
+        corpo.pack_start(ui.intestazione("Benvenuto", "Cosa vuoi fare oggi?"), False, False, 0)
+
+        stato = ui.stato_salvataggio()
+        if stato["modo"] != "installato":
+            senza = stato["modo"] == "senza"
+            pieno = not senza and stato["libero"] < 0.15 * stato["totale"]
+            box = ui.classe(Gtk.Box(spacing=12), "avviso" if (senza or pieno) else "ok")
+            icona = Gtk.Image.new_from_icon_name("dialog-warning" if (senza or pieno) else "emblem-default",
+                                                 Gtk.IconSize.DND)
+            box.pack_start(icona, False, False, 0)
+            if senza:
+                testo = ("<b>Attenzione: questa chiavetta non salva i tuoi file.</b>\n"
+                         "Quello che crei andrà perso allo spegnimento.")
+            elif pieno:
+                testo = (f"<b>Lo spazio di salvataggio sta finendo:</b> liberi {ui.gb(stato['libero'])}.\n"
+                         "Copia i file più grandi altrove e cancellali dalla chiavetta.")
+            else:
+                testo = (f"<b>I tuoi file vengono salvati sulla chiavetta.</b> "
+                         f"Liberi {ui.gb(stato['libero'])} su {ui.gb(stato['totale'])}.")
+            box.pack_start(ui.etichetta(testo, markup=True, avvolgi=True), True, True, 0)
+            come = ui.classe(Gtk.Button(label="Come fare" if (senza or pieno) else "Consigli"), "secondario")
+            come.set_valign(Gtk.Align.CENTER)
+            come.connect("clicked", lambda *_: ui.avvia("gisquare-salvataggio.desktop"))
+            box.pack_end(come, False, False, 0)
+            corpo.pack_start(box, False, False, 0)
+
+        griglia = Gtk.Grid(column_spacing=12, row_spacing=12, column_homogeneous=True)
+        n = 0
+        for nome, descr, icona, ids in SCHEDE:
+            desktop = ui.trova_desktop(*ids)
+            if not desktop:
+                continue
+            if icona is None:  # icona del programma stesso (es. GiSquare Circuiti)
+                from gi.repository import Gio
+                info = Gio.DesktopAppInfo.new(desktop)
+                img = Gtk.Image.new_from_gicon(info.get_icon(), Gtk.IconSize.DIALOG) if info and info.get_icon() \
+                    else Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
+            else:
+                img = Gtk.Image.new_from_icon_name(icona, Gtk.IconSize.DIALOG)
+            img.set_pixel_size(48)
+            contenuto = Gtk.Box(spacing=14)
+            contenuto.pack_start(img, False, False, 0)
+            testi = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            testi.set_valign(Gtk.Align.CENTER)
+            testi.pack_start(ui.etichetta(nome, "nome"), False, False, 0)
+            testi.pack_start(ui.etichetta(descr, "descrizione"), False, False, 0)
+            contenuto.pack_start(testi, True, True, 0)
+            pulsante = ui.classe(Gtk.Button(), "scheda")
+            pulsante.add(contenuto)
+            pulsante.connect("clicked", lambda _b, d=desktop: ui.avvia(d))
+            griglia.attach(pulsante, n % 2, n // 2, 1, 1)
+            n += 1
+        corpo.pack_start(griglia, False, False, 0)
+        radice.pack_start(corpo, True, True, 0)
+
+        # barra in basso: la spunta "Non mostrare più" ben visibile, a sinistra
+        barra = ui.classe(Gtk.Box(spacing=12), "barra")
+        self.spunta = ui.classe(Gtk.CheckButton(label="Non mostrare più all'avvio"), "spunta")
+        self.spunta.set_active(os.path.exists(NASCOSTO))
+        self.spunta.connect("toggled", self.salva_scelta)
+        barra.pack_start(self.spunta, False, False, 0)
+        inizia = ui.classe(Gtk.Button(label="Inizia"), "primario")
+        inizia.connect("clicked", lambda *_: self.win.destroy())
+        barra.pack_end(inizia, False, False, 0)
+        installa = ui.trova_desktop("gisquare-installa.desktop")
+        if installa and os.path.isdir("/run/live"):
+            b = ui.classe(Gtk.Button(label="Installa sul computer"), "secondario")
+            b.connect("clicked", lambda *_: ui.avvia(installa))
+            barra.pack_end(b, False, False, 0)
+        radice.pack_end(barra, False, False, 0)
+
+        self.win.show_all()
+        inizia.grab_focus()
+
+    def salva_scelta(self, spunta):
+        if spunta.get_active():
+            os.makedirs(os.path.dirname(NASCOSTO), exist_ok=True)
+            open(NASCOSTO, "w").close()
+        elif os.path.exists(NASCOSTO):
+            os.remove(NASCOSTO)
+
+
+if __name__ == "__main__":
+    if "--avvio" in sys.argv and os.path.exists(NASCOSTO):
+        sys.exit(0)
+    Benvenuto()
+    Gtk.main()

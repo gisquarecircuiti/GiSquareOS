@@ -1,0 +1,26 @@
+# GiSquare OS - protezione dei dischi interni durante l'uso dalla chiavetta.
+# (Numero 90: deve venire dopo le regole di Debian che riconoscono i dischi.)
+#
+# Quando il sistema gira in modalità live, i dischi interni del computer
+# (SATA, NVMe, SCSI, schede SD) vengono messi in SOLA LETTURA a livello di kernel:
+# niente può modificarli per sbaglio mentre si recuperano i file.
+# I dischi USB restano scrivibili, così si possono usare per salvare i file recuperati.
+#
+# Per sbloccarli: menu > Sistema > "Protezione dischi" (oppure: sudo gisquare-dischi sblocca).
+# Sul sistema installato questa regola non fa nulla (manca /run/live).
+
+ACTION!="add|change", GOTO="gisquare_fine"
+SUBSYSTEM!="block", GOTO="gisquare_fine"
+TEST!="/run/live", GOTO="gisquare_fine"
+TEST=="/run/gisquare-scrittura-dischi", GOTO="gisquare_fine"
+KERNEL=="loop*|sr*|ram*|zram*|dm-*|md*|nbd*", GOTO="gisquare_fine"
+ENV{DEVTYPE}!="disk|partition", GOTO="gisquare_fine"
+# Dischi USB (compresa la chiavetta di GiSquare OS e il suo spazio di salvataggio):
+# SUBSYSTEMS risale fino alla porta a cui è collegato il disco, quindi funziona anche
+# quando ID_BUS non è ancora stato calcolato (per esempio durante l'avvio, nell'initramfs).
+SUBSYSTEMS=="usb", GOTO="gisquare_fine"
+ENV{ID_BUS}=="usb", GOTO="gisquare_fine"
+
+RUN+="/usr/sbin/blockdev --setro $devnode"
+
+LABEL="gisquare_fine"
