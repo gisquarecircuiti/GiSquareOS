@@ -76,7 +76,8 @@ jobs:
         run: |
           # dopo l'avvio con persistenza, la partizione deve contenere la cartella rw
           # con i file del sistema (es. la cartella personale dell'utente)
-          sudo mkdir -p /mnt/p && sudo mount -o ro persistenza.img /mnt/p
+          # la macchina virtuale viene spenta di colpo: noload apre il disco senza rigiocare il diario
+          sudo mkdir -p /mnt/p && sudo mount -o ro,noload persistenza.img /mnt/p
           sudo ls -la /mnt/p /mnt/p/rw 2>&1 | head -30
           test -d /mnt/p/rw/home/gisquare && echo "SALVATAGGIO OK: /rw/home/gisquare esiste"
           sudo umount /mnt/p
