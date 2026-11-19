@@ -109,10 +109,11 @@ jobs:
           path: output/gisquare-os_*_all.deb
           retention-days: 7
 
-  # Archivio degli aggiornamenti GiSquare (repository APT firmato) sulle pagine GitHub del
-  # progetto: i computer con GiSquare OS installato lo controllano insieme a Debian.
-  # Gira solo per le versioni ufficiali e solo se c'è la chiave di firma (segreto
-  # GISQUARE_CHIAVE_FIRMA): vedi AGGIORNAMENTI.md.
+  # Pagine GitHub del progetto, solo per le versioni ufficiali: la pagina web (cartella
+  # sito/) e l'archivio degli aggiornamenti GiSquare (repository APT firmato, in apt/),
+  # che i computer con GiSquare OS installato controllano insieme a Debian.
+  # L'archivio si pubblica solo se c'è la chiave di firma (segreto GISQUARE_CHIAVE_FIRMA):
+  # vedi AGGIORNAMENTI.md.
   aggiornamenti:
     needs: iso
     if: inputs.ufficiale
@@ -132,21 +133,23 @@ jobs:
           name: pacchetto-gisquare-os
           path: pacchetto
 
-      - name: Crea l'archivio firmato
+      - name: Prepara la pagina web e l'archivio firmato degli aggiornamenti
         id: archivio
         env:
           CHIAVE: ${{ secrets.GISQUARE_CHIAVE_FIRMA }}
         run: |
+          # pagina web del progetto (cartella sito/)
+          mkdir -p pub
+          [ -d sito ] && cp -a sito/. pub/
+          echo "pronto=si" >> "$GITHUB_OUTPUT"
           if [ -z "$CHIAVE" ]; then
-            echo "::warning::Manca il segreto GISQUARE_CHIAVE_FIRMA: aggiornamenti non pubblicati (vedi AGGIORNAMENTI.md)"
-            echo "pronto=no" >> "$GITHUB_OUTPUT"; exit 0
+            echo "::warning::Manca il segreto GISQUARE_CHIAVE_FIRMA: pubblico solo la pagina, senza aggiornamenti (vedi AGGIORNAMENTI.md)"
+            exit 0
           fi
           export GNUPGHOME="$(mktemp -d)"
           printf '%s\n' "$CHIAVE" | gpg --batch --import
           IMPRONTA=$(gpg --batch --with-colons --list-secret-keys | awk -F: '/^fpr/{print $10; exit}')
-          # pagine del sito (se ci sono) + archivio degli aggiornamenti in apt/
-          mkdir -p pub
-          [ -d sito ] && cp -a sito/. pub/
+          # archivio degli aggiornamenti in apt/
           A=pub/apt; mkdir -p "$A/pool/main" "$A/dists/trixie/main/binary-amd64"
           cp pacchetto/*.deb "$A/pool/main/"
           cp chiave-aggiornamenti.asc pub/ 2>/dev/null || true
@@ -161,7 +164,6 @@ jobs:
           gpg --batch --yes --local-user "$IMPRONTA" -abs -o "$A/dists/trixie/Release.gpg" "$A/dists/trixie/Release"
           rm -rf "$GNUPGHOME"
           find pub -type f | sort
-          echo "pronto=si" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-pages-artifact@v3
         if: steps.archivio.outputs.pronto == 'si'

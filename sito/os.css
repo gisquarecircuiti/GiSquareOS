@@ -1,0 +1,58 @@
+/* GiSquare OS - parti specifiche della pagina, con le variabili di styles.css
+   (stesso stile del sito di GiSquare Circuiti) */
+.os-section{padding-top:96px;padding-bottom:40px}
+.news-item{cursor:default}
+
+/* I tre passi della chiavetta */
+.os-steps{list-style:none;margin:38px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.os-step{position:relative;padding:26px 24px 24px;border:1px solid var(--line);border-radius:6px;background:var(--white);box-shadow:0 12px 28px rgba(16,27,48,.06)}
+.os-step-no{display:inline-flex;width:38px;height:38px;border-radius:50%;align-items:center;justify-content:center;background:var(--forest);color:#fff;font-family:var(--serif);font-size:16px}
+.os-step h3{margin:16px 0 6px;font-family:var(--serif);font-size:23px;font-weight:400;line-height:1.15}
+.os-step p{margin:0;color:var(--muted);font-size:13px;line-height:1.75}
+.os-step a{color:#2f6fa3}
+
+.os-guide{margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 24px;border-radius:6px;background:#edf6fd;border:1px solid #cde6f8}
+.os-guide b{display:block;font-size:14px}
+.os-guide span{color:var(--muted);font-size:12.5px}
+
+/* Chiavetta o computer */
+.os-compare-wrap{margin-top:34px;overflow-x:auto}
+.os-compare{width:100%;border-collapse:collapse;font-size:13px}
+.os-compare th,.os-compare td{padding:14px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.os-compare thead th{font-family:var(--serif);font-size:19px;font-weight:400;color:var(--ink)}
+.os-compare tbody th{width:22%;color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.os-compare td{color:var(--ink)}
+
+/* Galleria */
+.os-gallery{margin-top:38px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.os-gallery figure{margin:0}
+.os-gallery img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;object-position:center;border-radius:6px;border:1px solid var(--line);box-shadow:0 12px 28px rgba(16,27,48,.08);background:var(--forest)}
+.os-gallery figcaption{margin-top:12px}
+.os-gallery figcaption b{display:block;font-family:var(--serif);font-size:19px;font-weight:400}
+.os-gallery figcaption span{color:var(--muted);font-size:12.5px}
+
+/* Requisiti nel riquadro di download */
+.os-req{margin:12px 0 16px;padding:0;list-style:none}
+.os-req li{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:1.55;color:var(--muted)}
+.os-req b{color:var(--ink)}
+
+/* Domande frequenti */
+.os-faq{margin-top:34px;border-top:1px solid var(--line)}
+.os-faq details{border-bottom:1px solid var(--line)}
+.os-faq summary{cursor:pointer;list-style:none;padding:20px 40px 20px 0;position:relative;font-family:var(--serif);font-size:21px}
+.os-faq summary::-webkit-details-marker{display:none}
+.os-faq summary::after{content:"+";position:absolute;right:6px;top:16px;font-family:var(--sans);font-size:24px;color:#2f6fa3}
+.os-faq details[open] summary::after{content:"–"}
+.os-faq p{margin:0 0 20px;max-width:720px;color:var(--muted);font-size:14px;line-height:1.75}
+
+@media(max-width:1000px){
+  .os-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  .os-section{padding-top:70px}
+  .os-steps{grid-template-columns:1fr}
+  .os-guide{flex-direction:column;align-items:flex-start}
+  .os-gallery{grid-template-columns:1fr}
+  .os-compare thead th{font-size:16px}
+  .os-faq summary{font-size:18px}
+}
