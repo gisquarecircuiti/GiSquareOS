@@ -422,6 +422,8 @@ update-desktop-database -q /usr/share/applications || true
 chmod 755 /usr/local/bin/gisquare-* /usr/local/lib/gisquare-os/installa-programmi
 # File di avvio (initramfs) rigenerati con le impostazioni GiSquare: tema di caricamento,
 # regola dei dischi in sola lettura (con le chiavette USB escluse), niente floppy.
+# Cache delle librerie aggiornata già qui: dalla chiavetta non si rifà al primo avvio
+ldconfig
 if command -v update-initramfs >/dev/null 2>&1; then
     update-initramfs -u -k all
 fi

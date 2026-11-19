@@ -83,6 +83,9 @@ mostra se il salvataggio è attivo e quanto spazio resta.</p>
   <li>Avvia il PC dalla chiavetta: nella finestra di Benvenuto deve comparire la riga verde
       <b>«I tuoi file vengono salvati sulla chiavetta»</b>.</li>
 </ol>
+<p class="nota"><b>PC vecchi senza UEFI</b> (più o meno fino al 2011, per esempio HP Z400): in Rufus controlla che
+<b>Schema partizione</b> sia <b>MBR</b> e <b>Sistema di destinazione</b> sia <b>BIOS (o UEFI-CSM)</b>. Così la chiavetta
+parte sia sui PC vecchi sia su quelli nuovi.</p>
 <p class="nota">Rufus con il cursore del salvataggio è il metodo provato. Programmi come balenaEtcher o Ventoy creano
 una chiavetta che funziona, ma <b>senza salvataggio</b>.</p>
 
@@ -107,9 +110,21 @@ una chiavetta che funziona, ma <b>senza salvataggio</b>.</p>
 <p>GiSquare Circuiti si aggiorna da solo e i programmi installati con <b>Programmi</b> o <b>Installa altri programmi</b>
 restano finché c'è il salvataggio.</p>
 
+<h3 id="problemi">Se qualcosa non va all'avvio</h3>
+<ul>
+  <li><b>La chiavetta non compare nel menu di avvio del PC:</b> prova un'altra porta USB, meglio sul retro. Sui PC vecchi
+      rifai la chiavetta con Rufus scegliendo lo schema <b>MBR</b> (vedi sopra).</li>
+  <li><b>Il monitor dice «nessun segnale» o lo schermo resta nero:</b> succede con alcune schede video NVIDIA vecchie
+      (per esempio Quadro FX e NVS, tipiche delle workstation HP e Dell) quando il monitor è collegato in
+      <b>DisplayPort</b>. Collega il monitor alla presa <b>DVI</b> della scheda video (bianca e larga; per un monitor con
+      solo HDMI basta un cavo o un adattatore DVI–HDMI) e avvia normalmente.</li>
+  <li><b>Si blocca durante il caricamento:</b> prova la voce <b>Avvia GiSquare OS (avvio sicuro)</b> nel menu di avvio.</li>
+  <li><b>Il primo avvio è lento:</b> sui PC con sole porte USB 2.0 il primo avvio con il salvataggio può durare 2–3 minuti;
+      i successivi sono più rapidi.</li>
+</ul>
+
 <h3>Se la chiavetta non parte più</h3>
 <ul>
-  <li>Prova la voce <b>Avvia GiSquare OS (avvio sicuro)</b> nel menu di avvio.</li>
   <li>I tuoi file sono nello spazio di salvataggio, una parte della chiavetta chiamata <code>persistence</code>.
       Da un'altra chiavetta GiSquare OS (o da un qualsiasi Linux) inserisci la chiavetta guasta, apri <b>File</b>,
       fai clic su <b>persistence</b>: i file sono nella cartella <code>rw/home/gisquare</code>. Copiali altrove.</li>
