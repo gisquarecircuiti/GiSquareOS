@@ -115,6 +115,20 @@ application/vnd.oasis.opendocument.presentation=libreoffice-impress.desktop
 MIME
 fi
 
+# Circuiti di GiSquare Circuiti (.gsq): tipo di file con la sua icona e apertura con doppio
+# clic. Il collegamento di Circuiti non dichiara i .gsq: ne facciamo una copia nascosta che
+# li dichiara (Circuiti apre il file .gsq che riceve all'avvio).
+if command -v update-mime-database >/dev/null 2>&1; then
+    update-mime-database /usr/share/mime
+fi
+if [ -f /usr/share/applications/gisquare-circuiti.desktop ]; then
+    grep -v -E '^(MimeType|NoDisplay)=' /usr/share/applications/gisquare-circuiti.desktop \
+        > /usr/share/applications/gisquare-circuiti-file.desktop
+    printf 'MimeType=application/x-gisquare-circuiti;\nNoDisplay=true\n' >> /usr/share/applications/gisquare-circuiti-file.desktop
+    printf 'application/x-gisquare-circuiti=gisquare-circuiti-file.desktop\n' >> /etc/xdg/mimeapps.list
+    echo "I: i file .gsq si aprono con GiSquare Circuiti"
+fi
+
 # Chromium browser predefinito anche per i programmi che usano x-www-browser e per XFCE
 if [ -x /usr/bin/chromium ]; then
     update-alternatives --set x-www-browser /usr/bin/chromium || true

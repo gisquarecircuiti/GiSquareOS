@@ -1,0 +1,205 @@
+#!/usr/bin/python3
+"""GiSquare OS - Segnala un problema.
+
+Raccoglie le informazioni tecniche utili per capire un problema (sistema, scheda video,
+rete, audio, errori recenti), senza dati personali: niente nomi di file, reti Wi-Fi,
+indirizzi o numeri di serie. Le mostra in una finestra dove si possono leggere e
+modificare prima di copiarle, salvarle o inviarle. Nulla viene inviato da solo.
+
+    gisquare-segnala           finestra
+    gisquare-segnala --testo   solo testo (per esempio dalla console, Ctrl+Alt+F2,
+                               quando la parte grafica non parte); lo salva anche su file
+"""
+import datetime
+import os
+import re
+import shutil
+import subprocess
+import sys
+import urllib.parse
+
+sys.path.insert(0, "/usr/local/lib/gisquare-os")
+
+EMAIL = "gisquare.circuiti@gmail.com"
+
+
+def comando(cmd, root=False):
+    """Esegue un comando e ne restituisce l'uscita (vuota se non disponibile)."""
+    if root and os.geteuid() != 0 and shutil.which("sudo"):
+        if subprocess.run(["sudo", "-n", "true"], capture_output=True).returncode == 0:
+            cmd = ["sudo", "-n"] + cmd
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        return r.stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def leggi(percorso):
+    try:
+        with open(percorso, errors="replace") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def versione_pacchetto(nome):
+    return comando(["dpkg-query", "-W", "-f=${Version}", nome]) or "non installato"
+
+
+def rapporto():
+    rel = dict(re.findall(r'^(\w+)="?([^"\n]*)"?', leggi("/etc/gisquare-os-release"), re.M))
+    mem = re.search(r"MemTotal:\s+(\d+)", leggi("/proc/meminfo"))
+    cpu = re.search(r"model name\s*:\s*(.+)", leggi("/proc/cpuinfo"))
+    righe = []
+
+    def sezione(titolo, testo):
+        righe.append(f"## {titolo}")
+        righe.append(testo.strip() if testo and testo.strip() else "(nessuna informazione)")
+        righe.append("")
+
+    if os.path.isdir("/run/live"):
+        salv = "attivo" if " /run/live/persistence" in leggi("/proc/mounts") else "NON attivo"
+        modo = f"dalla chiavetta, salvataggio {salv}"
+    else:
+        modo = "installato sul computer"
+    sezione("Sistema", "\n".join([
+        f"GiSquare OS {rel.get('GISQUARE_VERSIONE', '?')} (pacchetto gisquare-os {versione_pacchetto('gisquare-os')})",
+        f"GiSquare Circuiti: {versione_pacchetto('gisquare-circuiti')}",
+        f"Modalità: {modo}",
+        f"Avvio: {'UEFI' if os.path.isdir('/sys/firmware/efi') else 'BIOS'}",
+        f"Kernel: {os.uname().release}",
+        f"Opzioni di avvio: {' '.join(w for w in leggi('/proc/cmdline').split() if not w.startswith(('BOOT_IMAGE', 'initrd')))}",
+        f"Processore: {cpu.group(1).strip() if cpu else '?'}",
+        f"Memoria: {int(mem.group(1)) // 1024} MB" if mem else "Memoria: ?",
+        f"Computer: {leggi('/sys/class/dmi/id/sys_vendor').strip()} {leggi('/sys/class/dmi/id/product_name').strip()}",
+    ]))
+    # schede: video, rete, audio, con il driver in uso (lspci non mostra numeri di serie)
+    blocchi = comando(["lspci", "-nnk"]).split("\n")
+    scelte, dentro = [], False
+    for r in blocchi:
+        if r and not r.startswith(("\t", " ")):
+            dentro = bool(re.search(r"VGA|3D|Display|Network|Ethernet|Audio", r))
+        if dentro and "Subsystem" not in r:
+            scelte.append(r)
+    sezione("Schede (video, rete, audio) e driver", "\n".join(scelte))
+    sezione("Schermi", comando(["xrandr", "--query"]) if os.environ.get("DISPLAY") else "parte grafica non attiva")
+    sezione("Rete", comando(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device"]))
+    sezione("Dischi", comando(["lsblk", "-o", "NAME,SIZE,TYPE,TRAN,RM,RO,FSTYPE"]))
+    sezione("Dispositivi USB", re.sub(r"Bus \d+ Device \d+: ", "", comando(["lsusb"])))
+    xlog = leggi("/var/log/Xorg.0.log") or leggi(os.path.expanduser("~/.local/share/xorg/Xorg.0.log"))
+    sezione("Errori della parte grafica (Xorg)", "\n".join(r for r in xlog.splitlines() if "(EE)" in r)[-3000:])
+    sezione("Errori recenti del sistema",
+            comando(["journalctl", "-b", "-p", "err", "--no-pager", "-o", "short-monotonic", "-n", "60"], root=True))
+    return ("# Segnalazione GiSquare OS - " + datetime.datetime.now().strftime("%d/%m/%Y %H:%M") + "\n\n"
+            + "\n".join(righe))
+
+
+def nome_file():
+    return "segnalazione-gisquare-" + datetime.datetime.now().strftime("%Y%m%d-%H%M") + ".txt"
+
+
+def cartella_desktop():
+    d = comando(["xdg-user-dir", "DESKTOP"]) or os.path.expanduser("~/Desktop")
+    return d if os.path.isdir(d) else os.path.expanduser("~")
+
+
+def modo_testo():
+    testo = rapporto()
+    percorso = os.path.join(os.path.expanduser("~"), nome_file())
+    with open(percorso, "w") as f:
+        f.write(testo)
+    print(testo)
+    print(f"\n(Salvato anche nel file {percorso}.)")
+
+
+def finestra():
+    import gisquare_ui as ui
+    from gisquare_ui import Gtk
+    from gi.repository import Gdk, Pango
+
+    win = ui.finestra("Segnala un problema", 820, 760)
+    radice = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    win.add(radice)
+    corpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+    corpo.set_border_width(26)
+    corpo.pack_start(ui.intestazione("Segnala un problema",
+                                     "Descrivi cosa è successo: le informazioni tecniche sul computer le "
+                                     "raccoglie GiSquare OS. Nulla viene inviato da solo."), False, False, 0)
+
+    corpo.pack_start(ui.etichetta("Cosa è successo? Cosa stavi facendo?", "nome"), False, False, 0)
+    descr = Gtk.TextView()
+    descr.set_wrap_mode(Gtk.WrapMode.WORD)
+    descr.set_size_request(-1, 80)
+    cornice = ui.classe(Gtk.Frame(), "scheda")
+    cornice.add(descr)
+    corpo.pack_start(cornice, False, False, 0)
+
+    corpo.pack_start(ui.etichetta("Informazioni sul computer (puoi controllarle e modificarle prima di inviarle; "
+                                  "non contengono nomi di file, reti Wi-Fi né dati personali)", "tenue",
+                                  avvolgi=True), False, False, 0)
+    info = Gtk.TextView()
+    info.set_monospace(True)
+    info.override_font(Pango.FontDescription("Monospace 9"))
+    info.get_buffer().set_text(rapporto())
+    scorri = Gtk.ScrolledWindow()
+    scorri.add(info)
+    corpo.pack_start(scorri, True, True, 0)
+    radice.pack_start(corpo, True, True, 0)
+
+    def testo_completo():
+        b1, b2 = descr.get_buffer(), info.get_buffer()
+        d = b1.get_text(b1.get_start_iter(), b1.get_end_iter(), False).strip()
+        i = b2.get_text(b2.get_start_iter(), b2.get_end_iter(), False)
+        return f"## Cosa è successo\n{d or '(nessuna descrizione)'}\n\n{i}"
+
+    def messaggio(testo):
+        dlg = Gtk.MessageDialog(transient_for=win, modal=True, message_type=Gtk.MessageType.INFO,
+                                buttons=Gtk.ButtonsType.OK, text=testo)
+        dlg.run()
+        dlg.destroy()
+
+    def copia(*_):
+        Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(testo_completo(), -1)
+        messaggio("Testo copiato: incollalo in un'email o in una segnalazione con Ctrl+V.")
+
+    def salva(*_):
+        percorso = os.path.join(cartella_desktop(), nome_file())
+        with open(percorso, "w") as f:
+            f.write(testo_completo())
+        messaggio(f"Salvato sul desktop: {os.path.basename(percorso)}\n\n"
+                  f"Allegalo a un'email a {EMAIL} oppure a una segnalazione su GitHub.")
+
+    def github(*_):
+        rel = dict(re.findall(r'^(\w+)="?([^"\n]*)"?', leggi("/etc/gisquare-os-release"), re.M))
+        repo = rel.get("GISQUARE_REPO_OS") or "gisquarecircuiti/GiSquareOS"
+        corpo_issue = testo_completo()
+        if len(corpo_issue) > 6000:
+            corpo_issue = corpo_issue[:6000] + "\n\n(testo accorciato: allega il file completo salvato sul desktop)"
+            salva()
+        ui.apri(f"https://github.com/{repo}/issues/new?" + urllib.parse.urlencode(
+            {"title": "Problema: ", "body": corpo_issue}))
+
+    barra = ui.classe(Gtk.Box(spacing=12), "barra")
+    for etichetta_, funzione, stile in (("Copia il testo", copia, "secondario"),
+                                        ("Salva sul desktop", salva, "secondario")):
+        b = ui.classe(Gtk.Button(label=etichetta_), stile)
+        b.connect("clicked", funzione)
+        barra.pack_start(b, False, False, 0)
+    invia = ui.classe(Gtk.Button(label="Segnala su GitHub"), "primario")
+    invia.connect("clicked", github)
+    barra.pack_end(invia, False, False, 0)
+    chiudi = ui.classe(Gtk.Button(label="Chiudi"), "secondario")
+    chiudi.connect("clicked", lambda *_: win.destroy())
+    barra.pack_end(chiudi, False, False, 0)
+    radice.pack_end(barra, False, False, 0)
+    win.show_all()
+    descr.grab_focus()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    if "--testo" in sys.argv or not os.environ.get("DISPLAY"):
+        modo_testo()
+    else:
+        finestra()

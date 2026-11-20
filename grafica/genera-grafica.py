@@ -342,6 +342,12 @@ def main():
             + f'<line x1="128" y1="88" x2="128" y2="192" stroke="{AZZURRO}" stroke-width="10"/>'
             + f'<path d="M154 70V118L167 107L180 118V70Z" fill="{AMBRA}"/>',
         # chiavetta USB con la spunta verde (i file sono al sicuro)
+        # fumetto con il punto esclamativo: "segnala un problema"
+        "gisquare-segnala": riquadro("ib")
+            + f'<path d="M66 72H190A14 14 0 0 1 204 86V158A14 14 0 0 1 190 172H120L86 200V172H66A14 14 0 0 1 52 158V86A14 14 0 0 1 66 72Z" '
+              f'{T} stroke="{AZZURRO}" stroke-width="12"/>'
+            + f'<path d="M128 98V132" {T} stroke="{AMBRA}" stroke-width="15"/>'
+            + f'<circle cx="128" cy="154" r="8.5" fill="{AMBRA}"/>',
         "gisquare-salvataggio": riquadro("is")
             + f'<rect x="100" y="48" width="56" height="44" rx="6" {T} stroke="{AZZURRO}" stroke-width="10"/>'
             + f'<rect x="113" y="62" width="10" height="10" rx="2" fill="{AZZURRO}"/>'
@@ -357,6 +363,21 @@ def main():
             + f'<path d="M166 140V192M140 166H192" {T} stroke="{VERDE}" stroke-width="13"/>'
             + f'<circle cx="194" cy="62" r="9" fill="{AMBRA}"/>',
     }
+    # Icona dei file dei circuiti (.gsq): un foglio blu notte con il marchio Gi
+    foglio = (f'<defs><linearGradient id="fg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{NOTTE_3}"/>'
+              f'<stop offset="1" stop-color="{NOTTE_1}"/></linearGradient></defs>'
+              f'<path d="M58 20H164L210 66V224A12 12 0 0 1 198 236H58A12 12 0 0 1 46 224V32A12 12 0 0 1 58 20Z" fill="url(#fg)" '
+              f'stroke="{AZZURRO}" stroke-opacity="0.5" stroke-width="4"/>'
+              f'<path d="M164 20V54A12 12 0 0 0 176 66H210" fill="{NOTTE_3}" stroke="{AZZURRO}" stroke-opacity="0.5" stroke-width="4"/>'
+              f'<g transform="translate(128 128) scale(0.62) translate(-128 -128)">{MARCHIO}</g>'
+              f'<text x="128" y="214" font-family="{SANS}" font-weight="700" font-size="30" letter-spacing="3" '
+              f'text-anchor="middle" fill="{AZZURRO}">GSQ</text>')
+    nome_mime = "application-x-gisquare-circuiti"
+    scrivi(os.path.join(tmp, nome_mime + ".svg"), svg(256, 256, foglio))
+    for lato in (16, 22, 24, 32, 48, 64, 128, 256):
+        png(os.path.join(tmp, nome_mime + ".svg"),
+            os.path.join(ICONE, f"{lato}x{lato}/mimetypes/{nome_mime}.png"), lato, lato)
+
     for nome, corpo in icone.items():
         contenuto = svg(256, 256, corpo)
         scrivi(os.path.join(tmp, nome + ".svg"), contenuto)

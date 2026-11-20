@@ -1,18 +1,23 @@
 #!/usr/bin/python3
 """GiSquare OS - Salvataggio sulla chiavetta: dice se i file vengono salvati,
-quanto spazio resta e come non perdere nulla."""
+quanto spazio resta e come non perdere nulla; copia i file su un'altra chiavetta."""
+import datetime
 import os
+import re
+import subprocess
 import sys
 
 sys.path.insert(0, "/usr/local/lib/gisquare-os")
 import gisquare_ui as ui  # noqa: E402
 from gisquare_ui import Gtk  # noqa: E402
+from gi.repository import GLib  # noqa: E402
 
 REGOLE = [
     ("Spegni sempre dal menu", "Menu → Esci → Spegni, e togli la chiavetta solo a computer spento. "
                                "Strapparla mentre è accesa può rovinare i file salvati."),
-    ("Fai una copia ogni settimana", "Copia la tua cartella personale (Documenti, Immagini, i circuiti...) "
-                                     "su un'altra chiavetta, sul computer o in cloud."),
+    ("Fai una copia ogni settimana", "Con il pulsante «Copia i miei file» qui sotto copi la tua cartella "
+                                     "personale (Documenti, Immagini, i circuiti...) su un'altra chiavetta "
+                                     "o su un disco USB."),
     ("Non riempirla del tutto", "Tieni libero almeno il 10% dello spazio di salvataggio: "
                                 "se si riempie, i programmi non riescono più a salvare."),
     ("Usa una chiavetta buona", "USB 3, da almeno 16 GB, di una marca affidabile: "
@@ -81,12 +86,91 @@ class Salvataggio:
         barra.pack_start(cartella, False, False, 0)
         chiudi = ui.classe(Gtk.Button(label="Chiudi"), "secondario")
         chiudi.connect("clicked", lambda *_: self.win.destroy())
-        guida = ui.classe(Gtk.Button(label="Guida completa"), "primario")
+        guida = ui.classe(Gtk.Button(label="Guida completa"), "secondario")
         guida.connect("clicked", lambda *_: ui.apri(ui.GUIDA_CHIAVETTA))
+        copia = ui.classe(Gtk.Button(label="Copia i miei file…"), "primario")
+        copia.connect("clicked", self.copia_file)
+        barra.pack_end(copia, False, False, 0)
         barra.pack_end(guida, False, False, 0)
         barra.pack_end(chiudi, False, False, 0)
         radice.pack_end(barra, False, False, 0)
         self.win.show_all()
+
+
+    # ------------------------------------------------------------------ Copia i miei file
+    def messaggio(self, tipo, testo, secondario=None):
+        d = Gtk.MessageDialog(transient_for=self.win, modal=True, message_type=tipo,
+                              buttons=Gtk.ButtonsType.OK, text=testo)
+        if secondario:
+            d.format_secondary_text(secondario)
+        d.run()
+        d.destroy()
+
+    def copia_file(self, *_):
+        casa = os.path.realpath(os.path.expanduser("~"))
+        scelta = Gtk.FileChooserDialog(title="Dove vuoi copiare i tuoi file?", transient_for=self.win,
+                                       action=Gtk.FileChooserAction.SELECT_FOLDER)
+        scelta.add_buttons("Annulla", Gtk.ResponseType.CANCEL, "Copia qui", Gtk.ResponseType.OK)
+        chiavette = os.path.join("/media", os.environ.get("USER", ""))
+        scelta.set_current_folder(chiavette if os.path.isdir(chiavette) else "/media")
+        risposta, dest = scelta.run(), scelta.get_filename()
+        scelta.destroy()
+        if risposta != Gtk.ResponseType.OK or not dest:
+            return
+        dest = os.path.realpath(dest)
+        if dest == casa or dest.startswith(casa + os.sep):
+            self.messaggio(Gtk.MessageType.WARNING, "Scegli un posto fuori dalla tua cartella personale",
+                           "Per esempio un'altra chiavetta o un disco USB: li trovi a sinistra, "
+                           "sotto «Dispositivi», quando sono collegati.")
+            return
+        self.cartella = os.path.join(dest, "GiSquare-copia-" + datetime.datetime.now().strftime("%Y-%m-%d-%H%M"))
+        # niente cache né cestino; -r senza -l: i collegamenti simbolici non servono e
+        # le chiavette formattate per Windows (FAT, exFAT) non li supportano
+        cmd = ["rsync", "-rt", "--no-perms", "--no-owner", "--no-group", "--modify-window=2",
+               "--info=progress2", "--no-inc-recursive",
+               "--exclude=.cache/", "--exclude=.local/share/Trash/", "--exclude=.var/app/*/cache/",
+               casa + "/", self.cartella + "/"]
+        self.dlg = Gtk.Dialog(title="Copia dei tuoi file", transient_for=self.win, modal=True)
+        self.dlg.set_default_size(460, -1)
+        box = self.dlg.get_content_area()
+        box.set_border_width(20)
+        box.set_spacing(12)
+        box.add(Gtk.Label(label="Copia in corso, non togliere le chiavette…", xalign=0))
+        self.barra = Gtk.ProgressBar(show_text=True)
+        box.add(self.barra)
+        self.dlg.show_all()
+        try:
+            self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        except OSError as e:
+            self.dlg.destroy()
+            self.messaggio(Gtk.MessageType.ERROR, "La copia non è partita", str(e))
+            return
+        GLib.io_add_watch(self.proc.stdout, GLib.PRIORITY_DEFAULT, GLib.IO_IN | GLib.IO_HUP, self.avanzamento)
+
+    def avanzamento(self, sorgente, condizione):
+        dati = os.read(sorgente.fileno(), 4096)
+        if dati:
+            percentuali = re.findall(rb"(\d+)%", dati)
+            if percentuali:
+                p = int(percentuali[-1]) / 100
+                self.barra.set_fraction(p)
+                self.barra.set_text(f"{int(p * 100)}%")
+            return True
+        codice = self.proc.wait()
+        self.dlg.destroy()
+        nome = os.path.basename(self.cartella)
+        if codice == 0:
+            self.messaggio(Gtk.MessageType.INFO, "Copia completata",
+                           f"I tuoi file sono nella cartella «{nome}». Per riportarli su GiSquare OS "
+                           "copia il suo contenuto nella tua cartella personale.")
+        elif codice in (23, 24):
+            self.messaggio(Gtk.MessageType.WARNING, "Copia quasi completa",
+                           f"I file sono nella cartella «{nome}», ma alcuni non si sono potuti copiare "
+                           "(per esempio nomi con caratteri non permessi sulle chiavette per Windows).")
+        else:
+            self.messaggio(Gtk.MessageType.ERROR, "La copia non è riuscita",
+                           "Controlla che la chiavetta o il disco siano collegati e abbiano spazio libero.")
+        return False
 
 
 if __name__ == "__main__":

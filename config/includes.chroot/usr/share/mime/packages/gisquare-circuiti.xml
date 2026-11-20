@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GiSquare OS - i circuiti di GiSquare Circuiti (.gsq) hanno il loro tipo e la loro icona -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-gisquare-circuiti">
+    <comment>Circuito di GiSquare Circuiti</comment>
+    <comment xml:lang="it">Circuito di GiSquare Circuiti</comment>
+    <icon name="application-x-gisquare-circuiti"/>
+    <glob pattern="*.gsq" weight="90"/>
+  </mime-type>
+</mime-info>

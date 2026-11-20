@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Segnala un problema
+Comment=Raccoglie le informazioni sul computer per segnalare un problema di GiSquare OS
+Exec=gisquare-segnala
+Icon=gisquare-segnala
+Terminal=false
+Categories=System;
+Keywords=problema;errore;segnala;aiuto;bug;
