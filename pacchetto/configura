@@ -129,6 +129,22 @@ if [ -f /usr/share/applications/gisquare-circuiti.desktop ]; then
     echo "I: i file .gsq si aprono con GiSquare Circuiti"
 fi
 
+# Nomi e descrizioni in italiano per i programmi che non li hanno: una copia in
+# /usr/local/share/applications prevale sull'originale, che resta com'è.
+traduci() {  # file.desktop nome descrizione
+    o=/usr/share/applications/$1
+    [ -f "$o" ] || return 0
+    mkdir -p /usr/local/share/applications
+    grep -v -E '^(Name|Comment|GenericName)\[it\]=' "$o" \
+        | sed -e "s|^Name=.*|Name=$2|" -e "s|^Comment=.*|Comment=$3|" \
+        > "/usr/local/share/applications/$1"
+}
+traduci arduino.desktop "Arduino IDE" "Programma le schede Arduino e compatibili"
+traduci com.github.xournalpp.xournalpp.desktop "Lavagna (Xournal++)" "Scrivi a mano e annota PDF e schede, anche sulla LIM"
+traduci org.thonny.Thonny.desktop "Thonny" "Programma in Python e MicroPython, anche sulle schede"
+traduci fritzing.desktop "Fritzing" "Disegna i montaggi su breadboard, gli schemi e i circuiti stampati"
+traduci org.fritzing.Fritzing.desktop "Fritzing" "Disegna i montaggi su breadboard, gli schemi e i circuiti stampati"
+
 # Chromium browser predefinito anche per i programmi che usano x-www-browser e per XFCE
 if [ -x /usr/bin/chromium ]; then
     update-alternatives --set x-www-browser /usr/bin/chromium || true
