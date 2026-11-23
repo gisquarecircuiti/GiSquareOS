@@ -148,15 +148,43 @@ if [ -f "$XS/xsettings.xml" ]; then
         -e 's|(name="FontName" type="string" value=")[^"]*|\1Inter 10|' \
         "$XS/xsettings.xml"
 fi
+# Tema delle finestre "GiSquare": come Greybird-dark, ma con bordi di 6 pixel e angoli in
+# basso larghi, facili da afferrare per allargare o restringere (anche in diagonale).
+if [ -d /usr/share/themes/Greybird-dark/xfwm4 ]; then
+    TF=/usr/share/themes/GiSquare/xfwm4
+    rm -rf "$TF"; mkdir -p "$TF"
+    cp -a /usr/share/themes/Greybird-dark/xfwm4/. "$TF/"
+    xpm() {  # nome larghezza altezza righe...
+        nome=$1; w=$2; h=$3; shift 3
+        {
+            printf '/* XPM */\nstatic char * bordo_xpm[] = {\n"%s %s 2 1",\n"o\tc #1D1F1F",\n".\tc #3B3E3F",\n' "$w" "$h"
+            for r in "$@"; do printf '"%s",\n' "$r"; done
+            printf '};\n'
+        } > "$TF/$nome.xpm"
+    }
+    for stato in active inactive; do
+        xpm left-$stato 6 1 "o....."
+        xpm right-$stato 6 1 ".....o"
+        xpm bottom-$stato 1 6 "." "." "." "." "." "o"
+        xpm bottom-left-$stato 20 6 "o..................." "o..................." "o..................." \
+            "o..................." "o..................." "oooooooooooooooooooo"
+        xpm bottom-right-$stato 20 6 "...................o" "...................o" "...................o" \
+            "...................o" "...................o" "oooooooooooooooooooo"
+    done
+    TEMA_FINESTRE=GiSquare
+else
+    TEMA_FINESTRE=Greybird-dark
+fi
 cat > "$XS/xfwm4.xml" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <channel name="xfwm4" version="1.0">
   <property name="general" type="empty">
-    <property name="theme" type="string" value="Greybird-dark"/>
+    <property name="theme" type="string" value="TEMA_FINESTRE_QUI"/>
     <property name="use_compositing" type="bool" value="true"/>
   </property>
 </channel>
 EOF
+sed -i "s/TEMA_FINESTRE_QUI/$TEMA_FINESTRE/" "$XS/xfwm4.xml"
 # Pannello predefinito senza la domanda del primo avvio
 if [ -f /etc/xdg/xfce4/panel/default.xml ]; then
     cp /etc/xdg/xfce4/panel/default.xml "$XS/xfce4-panel.xml"
@@ -212,7 +240,8 @@ done
 
 # Pannello in basso: semitrasparente (blu notte), icone grandi, con GiSquare Circuiti
 if [ -f "$XS/xfce4-panel.xml" ]; then
-    CIRCUITI=$(ls /usr/share/applications/ | grep -m1 '^gisquare-circuiti.*\.desktop$' || true)
+    CIRCUITI=""
+    [ -f /usr/share/applications/gisquare-circuiti.desktop ] && CIRCUITI=gisquare-circuiti.desktop
     python3 - "$XS/xfce4-panel.xml" "$CIRCUITI" <<'PY'
 import sys
 import xml.etree.ElementTree as ET

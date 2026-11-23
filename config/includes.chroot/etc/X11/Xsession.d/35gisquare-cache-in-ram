@@ -1,0 +1,8 @@
+# GiSquare OS - dalla chiavetta la cache di browser e programmi (migliaia di piccoli file
+# scritti di continuo) va in memoria invece che sulla chiavetta: sulle chiavette lente
+# il sistema risponde molto più in fretta. La cache si svuota allo spegnimento.
+if [ -d /run/live ] && [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "$XDG_RUNTIME_DIR" ]; then
+    XDG_CACHE_HOME="$XDG_RUNTIME_DIR/cache"
+    mkdir -p "$XDG_CACHE_HOME"
+    export XDG_CACHE_HOME
+fi

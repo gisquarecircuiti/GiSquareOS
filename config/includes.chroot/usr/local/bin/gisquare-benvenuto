@@ -15,7 +15,7 @@ NASCOSTO = os.path.expanduser("~/.config/gisquare-os/benvenuto-nascosto")
 
 # nome, descrizione, icona di riserva, desktop id (il primo che esiste)
 SCHEDE = [
-    ("GiSquare Circuiti", "Simula un circuito", None, ["gisquare-circuiti*"]),
+    ("GiSquare Circuiti", "Simula un circuito", None, ["gisquare-circuiti.desktop", "gisquare-circuiti*"]),
     ("Arduino IDE", "Programma una scheda", "arduino", ["arduino.desktop"]),
     ("Lavagna", "Scrivi e annota sulla LIM", "xournalpp",
      ["com.github.xournalpp.xournalpp.desktop", "xournalpp.desktop"]),

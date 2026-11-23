@@ -68,6 +68,11 @@ for t in (2, 4, 6):
 for t in (12, 20, 30, 50, 70, 90, 110, 130, 150):
     aspetta(t); foto("avvio")
 aspetta(170); foto("desktop")
+# il menu delle applicazioni aperto (per controllare icone e categorie)
+monitor("sendkey alt-f2"); time.sleep(3)
+scrivi("xfce4-popup-whiskermenu"); monitor("sendkey ret")
+time.sleep(5); foto("menu")
+monitor("sendkey esc"); time.sleep(2)
 if circuiti:
     monitor("sendkey alt-f2"); time.sleep(3)
     scrivi(f"gtk-launch {circuiti}"); time.sleep(1); foto("comando")

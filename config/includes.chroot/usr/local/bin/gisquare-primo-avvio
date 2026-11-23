@@ -2,6 +2,9 @@
 # GiSquare OS - preparazione del desktop al primo accesso di ogni utente
 set -u
 FLAG="$HOME/.config/gisquare-os/desktop-pronto"
+# Le versioni di prova copiavano sul desktop anche il collegamento nascosto per i file .gsq
+# (GiSquare Circuiti compariva due volte): lo togliamo
+rm -f "$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")/gisquare-circuiti-file.desktop"
 [ -f "$FLAG" ] && exit 0
 SFONDO=/usr/share/gisquare-os/sfondo.png
 
@@ -23,9 +26,8 @@ mkdir -p "$DESKTOP"
 collegamenti=(/usr/share/applications/gisquare-guida.desktop
               /usr/share/applications/gisquare-recupero.desktop)
 [ -d /run/live ] && collegamenti=(/usr/share/applications/gisquare-installa.desktop "${collegamenti[@]}")
-for f in /usr/share/applications/gisquare-circuiti*.desktop; do
-    [ -f "$f" ] && collegamenti+=("$f")
-done
+[ -f /usr/share/applications/gisquare-circuiti.desktop ] \
+    && collegamenti+=(/usr/share/applications/gisquare-circuiti.desktop)
 for f in "${collegamenti[@]}"; do
     [ -f "$f" ] || continue
     dest="$DESKTOP/$(basename "$f")"
