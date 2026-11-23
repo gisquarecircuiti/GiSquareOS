@@ -1,0 +1,133 @@
+#!/usr/bin/python3
+"""GiSquare OS - Tema chiaro o scuro.
+
+Cambia insieme l'aspetto dei programmi, delle finestre, delle icone e del pannello in
+basso. La scelta vale per l'utente e resta salvata (anche sulla chiavetta con il
+salvataggio attivo).
+
+    gisquare-tema            finestra con le due scelte
+    gisquare-tema chiaro     passa subito al tema chiaro (anche: scuro)
+"""
+import os
+import subprocess
+import sys
+
+TEMI = {
+    "scuro": {
+        "gtk": "GiSquare-scuro", "icone": "Papirus-Dark", "schema": "prefer-dark",
+        "pannello": (0.071, 0.122, 0.208, 0.72),     # blu notte #121f35 al 72%
+    },
+    "chiaro": {
+        "gtk": "GiSquare-chiaro", "icone": "Papirus", "schema": "default",
+        "pannello": (0.957, 0.969, 0.984, 0.85),     # bianco azzurrino #f4f7fb all'85%
+    },
+}
+AMBIENTE = dict(os.environ, LC_ALL="C")  # numeri con il punto per xfconf-query
+
+
+def xfconf(canale, proprieta, *valori):
+    """Imposta una proprietà di xfconf; valori = coppie (tipo, valore)."""
+    argomenti = []
+    for tipo, valore in valori:
+        argomenti += ["-t", tipo, "-s", str(valore)]
+    base = ["xfconf-query", "-c", canale, "-p", proprieta]
+    if len(valori) > 1:
+        base.append("-a")
+    try:
+        if subprocess.run(base + ["-n"] + argomenti, env=AMBIENTE, capture_output=True).returncode:
+            subprocess.run(base + argomenti, env=AMBIENTE, capture_output=True)
+    except OSError:
+        pass
+
+
+def attuale():
+    try:
+        r = subprocess.run(["xfconf-query", "-c", "xsettings", "-p", "/Net/ThemeName"],
+                           capture_output=True, text=True)
+        return "chiaro" if "chiaro" in r.stdout or r.stdout.strip() == "Greybird" else "scuro"
+    except OSError:
+        return "scuro"
+
+
+def applica(nome):
+    t = TEMI[nome]
+    xfconf("xsettings", "/Net/ThemeName", ("string", t["gtk"]))
+    xfconf("xsettings", "/Net/IconThemeName", ("string", t["icone"]))
+    xfconf("xfwm4", "/general/theme", ("string", t["gtk"]))
+    xfconf("xfce4-panel", "/panels/panel-2/background-style", ("uint", 1))
+    xfconf("xfce4-panel", "/panels/panel-2/background-rgba", *[("double", v) for v in t["pannello"]])
+    for chiave, valore in (("color-scheme", t["schema"]), ("gtk-theme", t["gtk"]), ("icon-theme", t["icone"])):
+        try:
+            subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", chiave, valore],
+                           capture_output=True)
+        except OSError:
+            pass
+
+
+def finestra():
+    sys.path.insert(0, "/usr/local/lib/gisquare-os")
+    import gisquare_ui as ui
+    from gisquare_ui import Gtk
+
+    win = ui.finestra("Tema chiaro o scuro", 720, 460)
+    radice = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    win.add(radice)
+    corpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
+    corpo.set_border_width(28)
+    corpo.pack_start(ui.intestazione("Tema chiaro o scuro",
+                                     "Scegli l'aspetto di finestre, programmi, icone e pannello. "
+                                     "Puoi cambiarlo quando vuoi."), False, False, 0)
+    riga = Gtk.Box(spacing=16, homogeneous=True)
+    scelte = {}
+
+    def aggiorna(attivo):
+        for nome, (pulsante, segno) in scelte.items():
+            segno.set_text("✓  In uso" if nome == attivo else "")
+            ctx = pulsante.get_style_context()
+            (ctx.add_class if nome == attivo else ctx.remove_class)("scelto")
+
+    def scegli(_b, nome):
+        applica(nome)
+        aggiorna(nome)
+
+    for nome, titolo, descr, icona in (
+            ("scuro", "Scuro", "Blu notte, riposante per gli occhi. È quello di partenza.", "weather-clear-night"),
+            ("chiaro", "Chiaro", "Fondo chiaro, più leggibile con tanta luce o sulla LIM.", "weather-clear")):
+        img = Gtk.Image.new_from_icon_name(icona, Gtk.IconSize.DIALOG)
+        img.set_pixel_size(64)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        box.pack_start(img, False, False, 4)
+        box.pack_start(ui.etichetta(titolo, "nome", xalign=0.5), False, False, 0)
+        box.pack_start(ui.etichetta(descr, "descrizione", xalign=0.5, avvolgi=True), False, False, 0)
+        segno = ui.etichetta("", "nome", xalign=0.5)
+        box.pack_start(segno, False, False, 4)
+        pulsante = ui.classe(Gtk.Button(), "scheda")
+        pulsante.add(box)
+        pulsante.connect("clicked", scegli, nome)
+        scelte[nome] = (pulsante, segno)
+        riga.pack_start(pulsante, True, True, 0)
+    corpo.pack_start(riga, False, False, 0)
+    radice.pack_start(corpo, True, True, 0)
+
+    barra = ui.classe(Gtk.Box(spacing=12), "barra")
+    chiudi = ui.classe(Gtk.Button(label="Chiudi"), "primario")
+    chiudi.connect("clicked", lambda *_: win.destroy())
+    barra.pack_end(chiudi, False, False, 0)
+    radice.pack_end(barra, False, False, 0)
+
+    stile = Gtk.CssProvider()
+    stile.load_from_data(b".gisquare .scheda.scelto { border: 2px solid #6dc8ff; "
+                         b"background-color: rgba(109, 200, 255, 0.16); }")
+    from gi.repository import Gdk
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), stile,
+                                             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
+    aggiorna(attuale())
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] in TEMI:
+        applica(sys.argv[1])
+    else:
+        finestra()

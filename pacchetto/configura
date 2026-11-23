@@ -157,26 +157,49 @@ fi
 # ---------------------------------------------------------------------------
 XS=/etc/xdg/xfce4/xfconf/xfce-perchannel-xml
 mkdir -p "$XS"
-if [ -f "$XS/xsettings.xml" ]; then
-    sed -i -E \
-        -e 's|(name="ThemeName" type="string" value=")[^"]*|\1Greybird-dark|' \
-        -e 's|(name="IconThemeName" type="string" value=")[^"]*|\1Papirus-Dark|' \
-        -e 's|(name="FontName" type="string" value=")[^"]*|\1Inter 10|' \
-        "$XS/xsettings.xml"
-fi
-# Tema delle finestre "GiSquare": come Greybird-dark, ma con bordi di 6 pixel e angoli in
-# basso larghi, facili da afferrare per allargare o restringere (anche in diagonale).
-if [ -d /usr/share/themes/Greybird-dark/xfwm4 ]; then
-    TF=/usr/share/themes/GiSquare/xfwm4
-    rm -rf "$TF"; mkdir -p "$TF"
-    cp -a /usr/share/themes/Greybird-dark/xfwm4/. "$TF/"
+# Due temi GiSquare, scuro (predefinito) e chiaro, da scegliere con «Tema chiaro o scuro»:
+# - aspetto dei programmi: quello di Greybird-dark o Greybird, più il logo in alto nel
+#   menu Whisker più grande (il menu lo disegna di 32 pixel fissi: lo ingrandiamo a 48);
+# - finestre: bordi di 6 pixel e angoli in basso larghi, facili da afferrare per
+#   allargare o restringere (anche in diagonale).
+crea_tema() {  # nome base colore-bordo colore-interno
+    nome=$1; base=/usr/share/themes/$2; bordo=$3; interno=$4
+    T=/usr/share/themes/$nome
+    rm -rf "$T"; mkdir -p "$T/gtk-3.0"
+    cat > "$T/index.theme" <<EOT
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=$nome
+Comment=GiSquare OS, basato su $2
+
+[X-GNOME-Metatheme]
+GtkTheme=$nome
+MetacityTheme=$nome
+IconTheme=Papirus
+EOT
+    cat > "$T/gtk-3.0/gtk.css" <<EOT
+@import url("../../$2/gtk-3.0/gtk.css");
+
+/* GiSquare OS: logo in alto nel menu più grande */
+#whiskermenu-window .profile-picture {
+    -gtk-icon-transform: scale(1.5);
+    min-width: 48px;
+    min-height: 48px;
+}
+EOT
+    for d in gtk-2.0 gtk-4.0 xfce-notify-4.0; do
+        [ -e "$base/$d" ] && ln -s "../$2/$d" "$T/$d"
+    done
+    TF=$T/xfwm4
+    mkdir -p "$TF"
+    if [ -d "$base/xfwm4" ]; then cp -a "$base/xfwm4/." "$TF/"; fi
     xpm() {  # nome larghezza altezza righe...
-        nome=$1; w=$2; h=$3; shift 3
+        f=$1; w=$2; h=$3; shift 3
         {
-            printf '/* XPM */\nstatic char * bordo_xpm[] = {\n"%s %s 2 1",\n"o\tc #1D1F1F",\n".\tc #3B3E3F",\n' "$w" "$h"
+            printf '/* XPM */\nstatic char * bordo_xpm[] = {\n"%s %s 2 1",\n"o\tc %s",\n".\tc %s",\n' "$w" "$h" "$bordo" "$interno"
             for r in "$@"; do printf '"%s",\n' "$r"; done
             printf '};\n'
-        } > "$TF/$nome.xpm"
+        } > "$TF/$f.xpm"
     }
     for stato in active inactive; do
         xpm left-$stato 6 1 "o....."
@@ -187,20 +210,42 @@ if [ -d /usr/share/themes/Greybird-dark/xfwm4 ]; then
         xpm bottom-right-$stato 20 6 "...................o" "...................o" "...................o" \
             "...................o" "...................o" "oooooooooooooooooooo"
     done
-    TEMA_FINESTRE=GiSquare
-else
-    TEMA_FINESTRE=Greybird-dark
+    echo "I: tema $nome (da $2)"
+}
+TEMA=Greybird-dark
+if [ -d /usr/share/themes/Greybird-dark/gtk-3.0 ] && [ -d /usr/share/themes/Greybird/gtk-3.0 ]; then
+    crea_tema GiSquare-scuro Greybird-dark "#1D1F1F" "#3B3E3F"
+    crea_tema GiSquare-chiaro Greybird "#939393" "#DEDEDE"
+    # nome usato dalle versioni precedenti per le finestre
+    rm -rf /usr/share/themes/GiSquare
+    ln -s GiSquare-scuro /usr/share/themes/GiSquare
+    TEMA=GiSquare-scuro
 fi
-cat > "$XS/xfwm4.xml" <<'EOF'
+if [ -f "$XS/xsettings.xml" ]; then
+    sed -i -E \
+        -e "s|(name=\"ThemeName\" type=\"string\" value=\")[^\"]*|\\1$TEMA|" \
+        -e 's|(name="IconThemeName" type="string" value=")[^"]*|\1Papirus-Dark|' \
+        -e 's|(name="FontName" type="string" value=")[^"]*|\1Inter 10|' \
+        "$XS/xsettings.xml"
+fi
+cat > "$XS/xfwm4.xml" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <channel name="xfwm4" version="1.0">
   <property name="general" type="empty">
-    <property name="theme" type="string" value="TEMA_FINESTRE_QUI"/>
+    <property name="theme" type="string" value="$TEMA"/>
     <property name="use_compositing" type="bool" value="true"/>
   </property>
 </channel>
 EOF
-sed -i "s/TEMA_FINESTRE_QUI/$TEMA_FINESTRE/" "$XS/xfwm4.xml"
+# Programmi GNOME (Negozio dei programmi e simili): scuri come il resto
+mkdir -p /usr/share/glib-2.0/schemas
+cat > /usr/share/glib-2.0/schemas/90_gisquare-os.gschema.override <<EOF
+[org.gnome.desktop.interface]
+color-scheme='prefer-dark'
+gtk-theme='$TEMA'
+icon-theme='Papirus-Dark'
+EOF
+glib-compile-schemas /usr/share/glib-2.0/schemas || true
 # Pannello predefinito senza la domanda del primo avvio
 if [ -f /etc/xdg/xfce4/panel/default.xml ]; then
     cp /etc/xdg/xfce4/panel/default.xml "$XS/xfce4-panel.xml"

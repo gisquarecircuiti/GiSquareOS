@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Tema chiaro o scuro
+Comment=Scegli l'aspetto chiaro o scuro di finestre, programmi e pannello
+Exec=gisquare-tema
+Icon=preferences-desktop-theme
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=tema;chiaro;scuro;aspetto;colori;dark;light;
