@@ -186,7 +186,19 @@ EOT
     min-width: 48px;
     min-height: 48px;
 }
+
+/* GiSquare OS: pulsante «Menu» ben visibile, azzurro come nel sito */
+#whiskermenu-button {
+    background-image: none;
+    background-color: #6dc8ff;
+    border-radius: 4px;
+    margin: 2px 4px;
+    padding: 0 10px;
+}
+#whiskermenu-button:hover, #whiskermenu-button:checked { background-color: #b7e7ff; }
+#whiskermenu-button label { color: #172941; font-weight: bold; }
 EOT
+    printf '%s\n' "${CSS_IN_PIU:-}" >> "$T/gtk-3.0/gtk.css"
     for d in gtk-2.0 gtk-4.0 xfce-notify-4.0; do
         [ -e "$base/$d" ] && ln -s "../$2/$d" "$T/$d"
     done
@@ -215,7 +227,14 @@ EOT
 TEMA=Greybird-dark
 if [ -d /usr/share/themes/Greybird-dark/gtk-3.0 ] && [ -d /usr/share/themes/Greybird/gtk-3.0 ]; then
     crea_tema GiSquare-scuro Greybird-dark "#1D1F1F" "#3B3E3F"
+    # Greybird ha la barra in alto scura anche nel tema chiaro: qui la facciamo chiara
+    CSS_IN_PIU='
+/* GiSquare OS: barra in alto chiara */
+.xfce4-panel.background { background-color: rgba(244, 247, 251, 0.96); color: #1f2a3a; }
+.xfce4-panel.background button, .xfce4-panel.background label { color: #1f2a3a; }
+.xfce4-panel.background button:hover, .xfce4-panel.background button:checked { background-color: rgba(31, 42, 58, 0.12); }'
     crea_tema GiSquare-chiaro Greybird "#939393" "#DEDEDE"
+    CSS_IN_PIU=
     # nome usato dalle versioni precedenti per le finestre
     rm -rf /usr/share/themes/GiSquare
     ln -s GiSquare-scuro /usr/share/themes/GiSquare
@@ -249,7 +268,7 @@ glib-compile-schemas /usr/share/glib-2.0/schemas || true
 # Pannello predefinito senza la domanda del primo avvio
 if [ -f /etc/xdg/xfce4/panel/default.xml ]; then
     cp /etc/xdg/xfce4/panel/default.xml "$XS/xfce4-panel.xml"
-    sed -i 's|<property name="plugin-1" type="string" value="applicationsmenu"/>|<property name="plugin-1" type="string" value="whiskermenu"><property name="button-icon" type="string" value="gisquare-os"/><property name="show-button-title" type="bool" value="false"/></property>|' \
+    sed -i 's|<property name="plugin-1" type="string" value="applicationsmenu"/>|<property name="plugin-1" type="string" value="whiskermenu"><property name="button-icon" type="string" value="gisquare-os"/><property name="show-button-title" type="bool" value="true"/><property name="button-title" type="string" value="Menu"/></property>|' \
         "$XS/xfce4-panel.xml"
 fi
 
