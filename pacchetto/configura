@@ -269,6 +269,19 @@ if rgba is not None:
 rgba = ET.SubElement(p2, "property", name="background-rgba", type="array")
 for v in (0.071, 0.122, 0.208, 0.72):                # ...blu notte #121f35 al 72%
     ET.SubElement(rgba, "value", type="double", value=str(v))
+# Preferiti del menu: i programmi più usati a scuola (niente "posta elettronica":
+# non c'è un programma di posta installato)
+plugins = figlio(radice, "plugins")
+menu = figlio(plugins, "plugin-1")
+if menu is not None and menu.get("value") == "whiskermenu":
+    fav = figlio(menu, "favorites")
+    if fav is not None:
+        menu.remove(fav)
+    fav = ET.SubElement(menu, "property", name="favorites", type="array")
+    for app in ([circuiti] if circuiti else []) + ["arduino.desktop", "com.github.xournalpp.xournalpp.desktop",
+                "xfce4-web-browser.desktop", "xfce4-file-manager.desktop", "gisquare-programmi.desktop",
+                "gisquare-guida.desktop", "xfce4-terminal-emulator.desktop"]:
+        ET.SubElement(fav, "value", type="string", value=app)
 if circuiti:                                          # GiSquare Circuiti nel pannello
     plugins = figlio(radice, "plugins")
     nuovo = max(int(p.get("name").split("-")[1]) for p in plugins.findall("property")) + 1
