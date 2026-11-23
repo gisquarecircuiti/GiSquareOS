@@ -128,9 +128,12 @@ GISQUARE_REPO_OS="$REPO_OS"
 EOF
 # Archivio degli aggiornamenti GiSquare: attivo solo se c'è l'indirizzo e la chiave pubblica
 if [ -n "$APT_URL" ] && [ -f "$PROGETTO/chiave-aggiornamenti.asc" ]; then
-    mkdir -p "$SIS/etc/apt/sources.list.d" "$SIS/etc/apt/apt.conf.d" "$SIS/usr/share/keyrings"
+    # la sorgente APT non va in /etc/apt durante la costruzione (APT la leggerebbe subito,
+    # anche quando l'archivio non è ancora pubblicato): la attiva "configura" negli
+    # aggiornamenti e il servizio gisquare-aggiornamenti al primo avvio del sistema installato
+    mkdir -p "$SIS/usr/share/gisquare-os/apt" "$SIS/etc/apt/apt.conf.d" "$SIS/usr/share/keyrings"
     cp "$PROGETTO/chiave-aggiornamenti.asc" "$SIS/usr/share/keyrings/gisquare-os.asc"
-    cat > "$SIS/etc/apt/sources.list.d/gisquare-os.sources" <<EOF
+    cat > "$SIS/usr/share/gisquare-os/apt/gisquare-os.sources" <<EOF
 # GiSquare OS - aggiornamenti delle parti GiSquare (firmati con la chiave GiSquare)
 Types: deb
 URIs: $APT_URL

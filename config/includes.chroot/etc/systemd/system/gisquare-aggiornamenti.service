@@ -1,0 +1,14 @@
+[Unit]
+Description=GiSquare OS: attiva l'archivio degli aggiornamenti GiSquare
+# solo sul sistema installato: la chiavetta si aggiorna rifacendola con la ISO nuova
+ConditionPathExists=!/run/live
+ConditionPathExists=/usr/share/gisquare-os/apt/gisquare-os.sources
+ConditionPathExists=!/etc/apt/sources.list.d/gisquare-os.sources
+Before=apt-daily.service apt-daily-upgrade.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/cp /usr/share/gisquare-os/apt/gisquare-os.sources /etc/apt/sources.list.d/gisquare-os.sources
+
+[Install]
+WantedBy=multi-user.target

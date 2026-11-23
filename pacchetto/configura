@@ -539,6 +539,19 @@ if [ -f /etc/ufw/ufw.conf ]; then
     systemctl enable ufw.service 2>/dev/null || true
     echo "I: firewall attivo (entrata bloccata, uscita libera)"
 fi
+
+# Archivio degli aggiornamenti GiSquare: durante la costruzione della ISO non si attiva
+# (l'archivio potrebbe non essere ancora online); lo attiva il servizio
+# gisquare-aggiornamenti al primo avvio del sistema installato
+SORGENTE=/usr/share/gisquare-os/apt/gisquare-os.sources
+if [ -f "$SORGENTE" ]; then
+    if [ -n "${GISQUARE_COSTRUZIONE:-}" ]; then
+        rm -f /etc/apt/sources.list.d/gisquare-os.sources
+        systemctl enable gisquare-aggiornamenti.service 2>/dev/null || true
+    else
+        cp "$SORGENTE" /etc/apt/sources.list.d/gisquare-os.sources
+    fi
+fi
 # Blocco dello schermo: sul sistema installato sì, dalla chiavetta no (l'utente live
 # non ha una password da conoscere: lo schermo bloccato sarebbe un vicolo cieco).
 for f in $(grep -l '^Exec=light-locker' /etc/xdg/autostart/*.desktop 2>/dev/null); do
