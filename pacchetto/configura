@@ -232,7 +232,14 @@ if [ -d /usr/share/themes/Greybird-dark/gtk-3.0 ] && [ -d /usr/share/themes/Grey
 /* GiSquare OS: barra in alto chiara */
 .xfce4-panel.background { background-color: rgba(244, 247, 251, 0.96); color: #1f2a3a; }
 .xfce4-panel.background button, .xfce4-panel.background label { color: #1f2a3a; }
-.xfce4-panel.background button:hover, .xfce4-panel.background button:checked { background-color: rgba(31, 42, 58, 0.12); }'
+.xfce4-panel.background button:hover, .xfce4-panel.background button:checked { background-color: rgba(31, 42, 58, 0.12); }
+.xfce4-panel.background .tasklist button { background-image: none; background-color: rgba(31, 42, 58, 0.08); text-shadow: none; color: #1f2a3a; }
+.xfce4-panel.background .tasklist button:checked, .xfce4-panel.background .tasklist button:active { background-image: none; background-color: #6dc8ff; color: #172941; box-shadow: none; }
+.xfce4-panel.background .tasklist button:hover, .xfce4-panel.background .tasklist button:checked:hover { background-image: none; background-color: #b7e7ff; color: #172941; box-shadow: none; }
+.xfce4-panel.background .tasklist button label { color: #1f2a3a; text-shadow: none; }
+.xfce4-panel.background .tasklist button:checked label, .xfce4-panel.background .tasklist button:hover label { color: #172941; }
+wnck-pager { background-color: #dfe6ee; }
+wnck-pager:selected { background-color: #6dc8ff; }'
     crea_tema GiSquare-chiaro Greybird "#939393" "#DEDEDE"
     CSS_IN_PIU=
     # nome usato dalle versioni precedenti per le finestre
