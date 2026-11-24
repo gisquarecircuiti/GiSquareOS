@@ -83,7 +83,12 @@ jobs:
           Poi controlla che l'impronta SHA-256 corrisponda a quella nel file \`$ISO.sha256\`."
           fi
           if [ "$UFFICIALE" = "true" ]; then
-            # versione ufficiale: tag v<versione>, segnata come "ultima" (la usa l'avviso nuove versioni)
+            # versione ufficiale: tag v<versione>, segnata come "ultima" (la usa l'avviso nuove versioni).
+            # Se la stessa versione è già pubblicata (es. ISO rifatta con un GiSquare Circuiti
+            # nuovo) la release viene sostituita: gli indirizzi di download restano gli stessi.
+            if gh release view "v${VERSIONE}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+              gh release delete "v${VERSIONE}" --repo "${{ github.repository }}" --yes --cleanup-tag
+            fi
             gh release create "v${VERSIONE}" "${FILE[@]}" \
               --repo "${{ github.repository }}" --target "${{ github.sha }}" \
               --title "GiSquare OS ${VERSIONE}" --notes "$NOTE" --latest
